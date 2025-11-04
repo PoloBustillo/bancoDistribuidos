@@ -3,6 +3,8 @@ import cors from "cors";
 import { Server as ServidorHTTP } from "http";
 import { Server as ServidorSocket } from "socket.io";
 import { v4 as uuidv4 } from "uuid";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./swagger";
 import { gestorRecursos } from "./gestorRecursosDistribuidos";
 import {
   RespuestaAPI,
@@ -37,7 +39,47 @@ console.log(`[SERVIDOR] ID de sesión del servidor: ${idSesionServidor}`);
 aplicacion.use(cors());
 aplicacion.use(express.json());
 
-// Rutas de salud
+// Configurar Swagger UI
+aplicacion.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: "API Banco Distribuido",
+}));
+
+// Ruta para obtener el spec JSON de Swagger
+aplicacion.get("/api-docs.json", (req: Request, res: Response) => {
+  res.setHeader("Content-Type", "application/json");
+  res.send(swaggerSpec);
+});
+
+/**
+ * @swagger
+ * /salud:
+ *   get:
+ *     summary: Verifica el estado del servidor
+ *     tags: [Salud]
+ *     responses:
+ *       200:
+ *         description: Servidor activo
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 exitoso:
+ *                   type: boolean
+ *                   example: true
+ *                 datos:
+ *                   type: object
+ *                   properties:
+ *                     estado:
+ *                       type: string
+ *                       example: ACTIVO
+ *                     idSesion:
+ *                       type: string
+ *                 marca_tiempo:
+ *                   type: string
+ *                   format: date-time
+ */
 aplicacion.get("/salud", (req: Request, res: Response) => {
   res.json({
     exitoso: true,
@@ -49,8 +91,31 @@ aplicacion.get("/salud", (req: Request, res: Response) => {
 // ============== RUTAS REST DE CUENTAS ==============
 
 /**
- * GET /api/cuentas
- * Obtiene todas las cuentas
+ * @swagger
+ * /api/cuentas:
+ *   get:
+ *     summary: Obtiene todas las cuentas bancarias
+ *     tags: [Cuentas]
+ *     responses:
+ *       200:
+ *         description: Lista de cuentas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/RespuestaAPI'
+ *                 - type: object
+ *                   properties:
+ *                     datos:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/CuentaBancaria'
+ *       500:
+ *         description: Error del servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 aplicacion.get("/api/cuentas", (req: Request, res: Response) => {
   try {
@@ -71,8 +136,36 @@ aplicacion.get("/api/cuentas", (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/cuentas/:idCuenta
- * Obtiene una cuenta específica
+ * @swagger
+ * /api/cuentas/{idCuenta}:
+ *   get:
+ *     summary: Obtiene una cuenta específica por ID
+ *     tags: [Cuentas]
+ *     parameters:
+ *       - in: path
+ *         name: idCuenta
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la cuenta
+ *     responses:
+ *       200:
+ *         description: Cuenta encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/RespuestaAPI'
+ *                 - type: object
+ *                   properties:
+ *                     datos:
+ *                       $ref: '#/components/schemas/CuentaBancaria'
+ *       404:
+ *         description: Cuenta no encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 aplicacion.get("/api/cuentas/:idCuenta", (req: Request, res: Response) => {
   try {
@@ -104,8 +197,53 @@ aplicacion.get("/api/cuentas/:idCuenta", (req: Request, res: Response) => {
 // ============== RUTAS REST DE OPERACIONES ==============
 
 /**
- * POST /api/transacciones/depositar
- * Realiza un depósito
+ * @swagger
+ * /api/transacciones/depositar:
+ *   post:
+ *     summary: Realiza un depósito en una cuenta
+ *     tags: [Transacciones]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idCuenta
+ *               - monto
+ *             properties:
+ *               idCuenta:
+ *                 type: string
+ *                 example: cta-001
+ *               monto:
+ *                 type: number
+ *                 example: 1000
+ *               descripcion:
+ *                 type: string
+ *                 example: Depósito en efectivo
+ *     responses:
+ *       200:
+ *         description: Depósito exitoso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/RespuestaAPI'
+ *                 - type: object
+ *                   properties:
+ *                     datos:
+ *                       type: object
+ *                       properties:
+ *                         transaccion:
+ *                           $ref: '#/components/schemas/Transaccion'
+ *                         cuenta:
+ *                           $ref: '#/components/schemas/CuentaBancaria'
+ *       400:
+ *         description: Datos inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 aplicacion.post(
   "/api/transacciones/depositar",
@@ -312,8 +450,47 @@ aplicacion.get("/api/auditoria/:idCuenta", (req: Request, res: Response) => {
 // ============== RUTAS DE TARJETAS ==============
 
 /**
- * POST /api/tarjetas
- * Crea una nueva tarjeta
+ * @swagger
+ * /api/tarjetas:
+ *   post:
+ *     tags:
+ *       - Tarjetas
+ *     summary: Crear una nueva tarjeta
+ *     description: Crea una nueva tarjeta de débito, crédito o prepagada para una cuenta
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idCuenta
+ *               - tipo
+ *             properties:
+ *               idCuenta:
+ *                 type: string
+ *                 example: "cta-001"
+ *               tipo:
+ *                 type: string
+ *                 enum: [DEBITO, CREDITO, PREPAGADA]
+ *                 example: "DEBITO"
+ *               limiteCredito:
+ *                 type: number
+ *                 example: 5000
+ *                 description: Solo para tarjetas de crédito
+ *     responses:
+ *       200:
+ *         description: Tarjeta creada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/RespuestaAPI'
+ *       400:
+ *         description: Error en la solicitud
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 aplicacion.post("/api/tarjetas", async (req: Request, res: Response) => {
   try {
@@ -335,8 +512,37 @@ aplicacion.post("/api/tarjetas", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/tarjetas/:idCuenta
- * Obtiene las tarjetas de una cuenta
+ * @swagger
+ * /api/tarjetas/{idCuenta}:
+ *   get:
+ *     tags:
+ *       - Tarjetas
+ *     summary: Obtener tarjetas de una cuenta
+ *     description: Obtiene todas las tarjetas asociadas a una cuenta bancaria
+ *     parameters:
+ *       - in: path
+ *         name: idCuenta
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la cuenta bancaria
+ *         example: "cta-001"
+ *     responses:
+ *       200:
+ *         description: Lista de tarjetas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 exitoso:
+ *                   type: boolean
+ *                 datos:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Tarjeta'
+ *       500:
+ *         description: Error del servidor
  */
 aplicacion.get("/api/tarjetas/:idCuenta", (req: Request, res: Response) => {
   try {
@@ -358,8 +564,37 @@ aplicacion.get("/api/tarjetas/:idCuenta", (req: Request, res: Response) => {
 });
 
 /**
- * PUT /api/tarjetas/:idTarjeta/bloquear
- * Bloquea una tarjeta
+ * @swagger
+ * /api/tarjetas/{idTarjeta}/bloquear:
+ *   put:
+ *     tags:
+ *       - Tarjetas
+ *     summary: Bloquear una tarjeta
+ *     description: Bloquea una tarjeta por seguridad (robo, pérdida, etc.)
+ *     parameters:
+ *       - in: path
+ *         name: idTarjeta
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "tar-001"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idCuenta
+ *             properties:
+ *               idCuenta:
+ *                 type: string
+ *                 example: "cta-001"
+ *     responses:
+ *       200:
+ *         description: Tarjeta bloqueada exitosamente
+ *       404:
+ *         description: Tarjeta no encontrada
  */
 aplicacion.put(
   "/api/tarjetas/:idTarjeta/bloquear",
@@ -393,8 +628,37 @@ aplicacion.put(
 );
 
 /**
- * PUT /api/tarjetas/:idTarjeta/desbloquear
- * Desbloquea una tarjeta
+ * @swagger
+ * /api/tarjetas/{idTarjeta}/desbloquear:
+ *   put:
+ *     tags:
+ *       - Tarjetas
+ *     summary: Desbloquear una tarjeta
+ *     description: Desbloquea una tarjeta previamente bloqueada
+ *     parameters:
+ *       - in: path
+ *         name: idTarjeta
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "tar-001"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idCuenta
+ *             properties:
+ *               idCuenta:
+ *                 type: string
+ *                 example: "cta-001"
+ *     responses:
+ *       200:
+ *         description: Tarjeta desbloqueada exitosamente
+ *       404:
+ *         description: Tarjeta no encontrada
  */
 aplicacion.put(
   "/api/tarjetas/:idTarjeta/desbloquear",
@@ -430,8 +694,49 @@ aplicacion.put(
 // ============== RUTAS DE PRÉSTAMOS ==============
 
 /**
- * POST /api/prestamos
- * Solicita un nuevo préstamo
+ * @swagger
+ * /api/prestamos:
+ *   post:
+ *     tags:
+ *       - Préstamos
+ *     summary: Solicitar un nuevo préstamo
+ *     description: Solicita un préstamo con cálculo automático de cuota mensual
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idCuenta
+ *               - monto
+ *               - plazoMeses
+ *             properties:
+ *               idCuenta:
+ *                 type: string
+ *                 example: "cta-001"
+ *               monto:
+ *                 type: number
+ *                 example: 10000
+ *                 description: Monto del préstamo
+ *               plazoMeses:
+ *                 type: number
+ *                 example: 12
+ *                 description: Plazo en meses
+ *     responses:
+ *       200:
+ *         description: Préstamo aprobado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 exitoso:
+ *                   type: boolean
+ *                 datos:
+ *                   $ref: '#/components/schemas/Prestamo'
+ *       400:
+ *         description: Saldo insuficiente o error en la solicitud
  */
 aplicacion.post("/api/prestamos", async (req: Request, res: Response) => {
   try {
@@ -455,8 +760,34 @@ aplicacion.post("/api/prestamos", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/prestamos/:idCuenta
- * Obtiene los préstamos de una cuenta
+ * @swagger
+ * /api/prestamos/{idCuenta}:
+ *   get:
+ *     tags:
+ *       - Préstamos
+ *     summary: Obtener préstamos de una cuenta
+ *     description: Obtiene todos los préstamos (activos, pagados, vencidos) de una cuenta
+ *     parameters:
+ *       - in: path
+ *         name: idCuenta
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "cta-003"
+ *     responses:
+ *       200:
+ *         description: Lista de préstamos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 exitoso:
+ *                   type: boolean
+ *                 datos:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Prestamo'
  */
 aplicacion.get("/api/prestamos/:idCuenta", (req: Request, res: Response) => {
   try {
@@ -478,8 +809,46 @@ aplicacion.get("/api/prestamos/:idCuenta", (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/prestamos/:idPrestamo/pagar
- * Paga una cuota de un préstamo
+ * @swagger
+ * /api/prestamos/{idPrestamo}/pagar:
+ *   post:
+ *     tags:
+ *       - Préstamos
+ *     summary: Pagar cuota de préstamo
+ *     description: Realiza el pago de una cuota mensual del préstamo
+ *     parameters:
+ *       - in: path
+ *         name: idPrestamo
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "pres-001"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idCuenta
+ *             properties:
+ *               idCuenta:
+ *                 type: string
+ *                 example: "cta-003"
+ *     responses:
+ *       200:
+ *         description: Cuota pagada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 exitoso:
+ *                   type: boolean
+ *                 datos:
+ *                   $ref: '#/components/schemas/PagoPrestamo'
+ *       400:
+ *         description: Saldo insuficiente o préstamo no activo
  */
 aplicacion.post(
   "/api/prestamos/:idPrestamo/pagar",
@@ -512,8 +881,43 @@ aplicacion.post(
 // ============== RUTAS DE INVERSIONES ==============
 
 /**
- * POST /api/inversiones
- * Crea una nueva inversión
+ * @swagger
+ * /api/inversiones:
+ *   post:
+ *     tags:
+ *       - Inversiones
+ *     summary: Crear una nueva inversión
+ *     description: Crea una inversión (plazo fijo, fondos, acciones, bonos)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idCuenta
+ *               - tipo
+ *               - monto
+ *             properties:
+ *               idCuenta:
+ *                 type: string
+ *                 example: "cta-001"
+ *               tipo:
+ *                 type: string
+ *                 enum: [PLAZO_FIJO, FONDOS_INVERSION, ACCIONES, BONOS]
+ *                 example: "PLAZO_FIJO"
+ *               monto:
+ *                 type: number
+ *                 example: 2000
+ *               plazoMeses:
+ *                 type: number
+ *                 example: 12
+ *                 description: Plazo en meses (opcional)
+ *     responses:
+ *       200:
+ *         description: Inversión creada exitosamente
+ *       400:
+ *         description: Saldo insuficiente
  */
 aplicacion.post("/api/inversiones", async (req: Request, res: Response) => {
   try {
@@ -537,8 +941,22 @@ aplicacion.post("/api/inversiones", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/inversiones/:idCuenta
- * Obtiene las inversiones de una cuenta
+ * @swagger
+ * /api/inversiones/{idCuenta}:
+ *   get:
+ *     tags:
+ *       - Inversiones
+ *     summary: Obtener inversiones de una cuenta
+ *     parameters:
+ *       - in: path
+ *         name: idCuenta
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "cta-001"
+ *     responses:
+ *       200:
+ *         description: Lista de inversiones
  */
 aplicacion.get("/api/inversiones/:idCuenta", (req: Request, res: Response) => {
   try {
@@ -560,8 +978,33 @@ aplicacion.get("/api/inversiones/:idCuenta", (req: Request, res: Response) => {
 });
 
 /**
- * DELETE /api/inversiones/:idInversion
- * Cancela una inversión
+ * @swagger
+ * /api/inversiones/{idInversion}:
+ *   delete:
+ *     tags:
+ *       - Inversiones
+ *     summary: Cancelar una inversión
+ *     description: Cancela una inversión y devuelve el monto con rendimientos
+ *     parameters:
+ *       - in: path
+ *         name: idInversion
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "inv-001"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               idCuenta:
+ *                 type: string
+ *                 example: "cta-001"
+ *     responses:
+ *       200:
+ *         description: Inversión cancelada exitosamente
  */
 aplicacion.delete(
   "/api/inversiones/:idInversion",
@@ -591,8 +1034,43 @@ aplicacion.delete(
 // ============== RUTAS DE BENEFICIARIOS ==============
 
 /**
- * POST /api/beneficiarios
- * Agrega un nuevo beneficiario
+ * @swagger
+ * /api/beneficiarios:
+ *   post:
+ *     tags:
+ *       - Beneficiarios
+ *     summary: Agregar un nuevo beneficiario
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idCuenta
+ *               - numeroCuentaDestino
+ *               - nombreBeneficiario
+ *               - banco
+ *               - alias
+ *             properties:
+ *               idCuenta:
+ *                 type: string
+ *                 example: "cta-002"
+ *               numeroCuentaDestino:
+ *                 type: string
+ *                 example: "1000001"
+ *               nombreBeneficiario:
+ *                 type: string
+ *                 example: "Juan Pérez"
+ *               banco:
+ *                 type: string
+ *                 example: "Banco Demo"
+ *               alias:
+ *                 type: string
+ *                 example: "Juan"
+ *     responses:
+ *       200:
+ *         description: Beneficiario agregado exitosamente
  */
 aplicacion.post("/api/beneficiarios", (req: Request, res: Response) => {
   try {
@@ -687,8 +1165,28 @@ aplicacion.delete(
 // ============== RUTAS DE NOTIFICACIONES ==============
 
 /**
- * GET /api/notificaciones/:idCuenta
- * Obtiene las notificaciones de una cuenta
+ * @swagger
+ * /api/notificaciones/{idCuenta}:
+ *   get:
+ *     tags:
+ *       - Notificaciones
+ *     summary: Obtener notificaciones de una cuenta
+ *     parameters:
+ *       - in: path
+ *         name: idCuenta
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "cta-001"
+ *       - in: query
+ *         name: soloNoLeidas
+ *         schema:
+ *           type: boolean
+ *         description: Filtrar solo notificaciones no leídas
+ *         example: true
+ *     responses:
+ *       200:
+ *         description: Lista de notificaciones
  */
 aplicacion.get(
   "/api/notificaciones/:idCuenta",
@@ -717,8 +1215,34 @@ aplicacion.get(
 );
 
 /**
- * PUT /api/notificaciones/:idNotificacion/marcar-leida
- * Marca una notificación como leída
+ * @swagger
+ * /api/notificaciones/{idNotificacion}/marcar-leida:
+ *   put:
+ *     tags:
+ *       - Notificaciones
+ *     summary: Marcar notificación como leída
+ *     parameters:
+ *       - in: path
+ *         name: idNotificacion
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "not-001"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               idCuenta:
+ *                 type: string
+ *                 example: "cta-001"
+ *     responses:
+ *       200:
+ *         description: Notificación marcada como leída
+ *       404:
+ *         description: Notificación no encontrada
  */
 aplicacion.put(
   "/api/notificaciones/:idNotificacion/marcar-leida",
@@ -755,8 +1279,22 @@ aplicacion.put(
 );
 
 /**
- * PUT /api/notificaciones/:idCuenta/marcar-todas-leidas
- * Marca todas las notificaciones como leídas
+ * @swagger
+ * /api/notificaciones/{idCuenta}/marcar-todas-leidas:
+ *   put:
+ *     tags:
+ *       - Notificaciones
+ *     summary: Marcar todas las notificaciones como leídas
+ *     parameters:
+ *       - in: path
+ *         name: idCuenta
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "cta-001"
+ *     responses:
+ *       200:
+ *         description: Todas las notificaciones marcadas como leídas
  */
 aplicacion.put(
   "/api/notificaciones/:idCuenta/marcar-todas-leidas",
@@ -783,8 +1321,45 @@ aplicacion.put(
 // ============== RUTAS DE PAGOS PROGRAMADOS ==============
 
 /**
- * POST /api/pagos-programados
- * Crea un nuevo pago programado
+ * @swagger
+ * /api/pagos-programados:
+ *   post:
+ *     tags:
+ *       - Pagos Programados
+ *     summary: Crear un pago programado
+ *     description: Crea un pago recurrente automático
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idCuentaOrigen
+ *               - idCuentaDestino
+ *               - monto
+ *               - frecuencia
+ *               - descripcion
+ *             properties:
+ *               idCuentaOrigen:
+ *                 type: string
+ *                 example: "cta-001"
+ *               idCuentaDestino:
+ *                 type: string
+ *                 example: "cta-002"
+ *               monto:
+ *                 type: number
+ *                 example: 500
+ *               frecuencia:
+ *                 type: string
+ *                 enum: [DIARIA, SEMANAL, QUINCENAL, MENSUAL, ANUAL]
+ *                 example: "MENSUAL"
+ *               descripcion:
+ *                 type: string
+ *                 example: "Ahorro mensual"
+ *     responses:
+ *       200:
+ *         description: Pago programado creado exitosamente
  */
 aplicacion.post("/api/pagos-programados", (req: Request, res: Response) => {
   try {
@@ -813,8 +1388,22 @@ aplicacion.post("/api/pagos-programados", (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/pagos-programados/:idCuenta
- * Obtiene los pagos programados de una cuenta
+ * @swagger
+ * /api/pagos-programados/{idCuenta}:
+ *   get:
+ *     tags:
+ *       - Pagos Programados
+ *     summary: Obtener pagos programados de una cuenta
+ *     parameters:
+ *       - in: path
+ *         name: idCuenta
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "cta-001"
+ *     responses:
+ *       200:
+ *         description: Lista de pagos programados
  */
 aplicacion.get(
   "/api/pagos-programados/:idCuenta",
@@ -905,8 +1494,34 @@ aplicacion.delete(
 // ============== RUTAS DE LÍMITES ==============
 
 /**
- * GET /api/limites/:idCuenta
- * Obtiene los límites de una cuenta
+ * @swagger
+ * /api/limites/{idCuenta}:
+ *   get:
+ *     tags:
+ *       - Límites
+ *     summary: Obtener límites de una cuenta
+ *     description: Obtiene los límites de operaciones y el uso actual
+ *     parameters:
+ *       - in: path
+ *         name: idCuenta
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "cta-001"
+ *     responses:
+ *       200:
+ *         description: Límites de la cuenta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 exitoso:
+ *                   type: boolean
+ *                 datos:
+ *                   $ref: '#/components/schemas/LimitesCuenta'
+ *       404:
+ *         description: Límites no encontrados
  */
 aplicacion.get("/api/limites/:idCuenta", (req: Request, res: Response) => {
   try {
@@ -936,8 +1551,42 @@ aplicacion.get("/api/limites/:idCuenta", (req: Request, res: Response) => {
 });
 
 /**
- * PUT /api/limites/:idCuenta
- * Configura los límites de una cuenta
+ * @swagger
+ * /api/limites/{idCuenta}:
+ *   put:
+ *     tags:
+ *       - Límites
+ *     summary: Configurar límites de una cuenta
+ *     description: Establece o actualiza los límites de operaciones
+ *     parameters:
+ *       - in: path
+ *         name: idCuenta
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "cta-001"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               limiteRetiroDiario:
+ *                 type: number
+ *                 example: 5000
+ *               limiteTransferenciaDiaria:
+ *                 type: number
+ *                 example: 10000
+ *               limiteCompraInternacional:
+ *                 type: number
+ *                 example: 3000
+ *               limiteCompraNacional:
+ *                 type: number
+ *                 example: 8000
+ *     responses:
+ *       200:
+ *         description: Límites actualizados exitosamente
  */
 aplicacion.put("/api/limites/:idCuenta", (req: Request, res: Response) => {
   try {
