@@ -117,7 +117,10 @@ const swaggerDefinition = {
           },
           monto: { type: "number", example: 1000 },
           descripcion: { type: "string", example: "Depósito en efectivo" },
-          estado: { type: "string", enum: ["COMPLETADA", "PENDIENTE", "FALLIDA"] },
+          estado: {
+            type: "string",
+            enum: ["COMPLETADA", "PENDIENTE", "FALLIDA"],
+          },
           marca_tiempo: { type: "string", format: "date-time" },
           idCliente: { type: "string", example: "cliente-001" },
         },

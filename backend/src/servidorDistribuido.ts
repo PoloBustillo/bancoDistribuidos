@@ -40,10 +40,14 @@ aplicacion.use(cors());
 aplicacion.use(express.json());
 
 // Configurar Swagger UI
-aplicacion.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: "API Banco Distribuido",
-}));
+aplicacion.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    customCss: ".swagger-ui .topbar { display: none }",
+    customSiteTitle: "API Banco Distribuido",
+  })
+);
 
 // Ruta para obtener el spec JSON de Swagger
 aplicacion.get("/api-docs.json", (req: Request, res: Response) => {
