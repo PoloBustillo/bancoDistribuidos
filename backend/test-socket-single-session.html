@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Banco - Demo WebSocket (Sesión Única)</title>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      padding: 30px;
+    }
+    h1 {
+      color: #667eea;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .section {
+      margin-bottom: 25px;
+      padding: 20px;
+      border: 2px solid #f0f0f0;
+      border-radius: 8px;
+    }
+    .section h2 {
+      color: #333;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 10px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border 0.3s;
+    }
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #5568d3;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .status {
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-weight: 500;
+    }
+    .status.disconnected {
+      background: #fee;
+      color: #c33;
+      border: 2px solid #fcc;
+    }
+    .status.connected {
+      background: #efe;
+      color: #3c3;
+      border: 2px solid #cfc;
+    }
+    .status.kicked {
+      background: #fff3cd;
+      color: #856404;
+      border: 2px solid #ffeeba;
+    }
+    .log {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 6px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .log-entry {
+      padding: 5px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+    .log-time {
+      color: #999;
+      margin-right: 10px;
+    }
+    .log-info { color: #2196F3; }
+    .log-success { color: #4CAF50; }
+    .log-error { color: #f44336; }
+    .log-warn { color: #ff9800; }
+    .device-info {
+      background: #f9f9f9;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏦 Banco - WebSocket Demo</h1>
+    <p class="subtitle">⚠️ Solo se permite 1 sesión activa por usuario</p>
+
+    <!-- Estado de la conexión -->
+    <div id="status" class="status disconnected">
+      ❌ Desconectado
+    </div>
+
+    <!-- Login -->
+    <div class="section" id="loginSection">
+      <h2>🔐 Iniciar Sesión</h2>
+      <input type="email" id="email" placeholder="Email" value="juan@demo.com">
+      <input type="password" id="password" placeholder="Contraseña" value="password123">
+      <button onclick="login()">Iniciar Sesión</button>
+    </div>
+
+    <!-- Información de sesión -->
+    <div class="section" id="sessionSection" style="display:none;">
+      <h2>👤 Sesión Activa</h2>
+      <div id="sessionInfo"></div>
+      <div class="device-info" id="deviceInfo"></div>
+      <button onclick="logout()" style="margin-top: 15px; background: #f44336;">
+        Cerrar Sesión
+      </button>
+    </div>
+
+    <!-- Instrucciones -->
+    <div class="section">
+      <h2>📋 Instrucciones para Probar</h2>
+      <ol style="margin-left: 20px; line-height: 1.8;">
+        <li>Haz login en esta pestaña</li>
+        <li>Abre una <strong>nueva pestaña/ventana</strong> con esta misma página</li>
+        <li>Haz login de nuevo en la nueva pestaña</li>
+        <li>Observa cómo <strong>esta pestaña es expulsada automáticamente</strong></li>
+        <li>Solo la última sesión permanecerá activa</li>
+      </ol>
+    </div>
+
+    <!-- Log de eventos -->
+    <div class="section">
+      <h2>📜 Log de Eventos</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    let socket = null;
+    let token = null;
+
+    function addLog(message, type = 'info') {
+      const log = document.getElementById('log');
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `<span class="log-time">[${time}]</span><span class="log-${type}">${message}</span>`;
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function updateStatus(message, connected = false, kicked = false) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = 'status';
+      if (kicked) status.classList.add('kicked');
+      else if (connected) status.classList.add('connected');
+      else status.classList.add('disconnected');
+    }
+
+    async function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        addLog('📡 Enviando credenciales al servidor...', 'info');
+        
+        const response = await fetch('http://localhost:3001/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          addLog(`❌ Error: ${data.error}`, 'error');
+          return;
+        }
+
+        token = data.token;
+        addLog(`✅ Login exitoso: ${data.usuario.nombre}`, 'success');
+        addLog(`💳 Cuentas: ${data.cuentas.length}`, 'info');
+
+        // Conectar WebSocket
+        connectSocket();
+
+        // Mostrar info de sesión
+        document.getElementById('sessionInfo').innerHTML = `
+          <strong>Usuario:</strong> ${data.usuario.nombre} (${data.usuario.email})<br>
+          <strong>Token:</strong> ${token.substring(0, 20)}...
+        `;
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('sessionSection').style.display = 'block';
+
+      } catch (error) {
+        addLog(`❌ Error de conexión: ${error.message}`, 'error');
+      }
+    }
+
+    function connectSocket() {
+      addLog('🔌 Conectando WebSocket...', 'info');
+
+      socket = io('http://localhost:3001', {
+        auth: { token }
+      });
+
+      // Conexión exitosa
+      socket.on('connect', () => {
+        addLog(`✅ WebSocket conectado (ID: ${socket.id})`, 'success');
+        updateStatus('✅ Conectado y autenticado', true);
+        
+        document.getElementById('deviceInfo').innerHTML = `
+          <strong>Socket ID:</strong> ${socket.id}<br>
+          <strong>User Agent:</strong> ${navigator.userAgent}
+        `;
+      });
+
+      // Sesión confirmada
+      socket.on('session:connected', (data) => {
+        addLog(`🎉 Sesión confirmada: ${data.message}`, 'success');
+        addLog(`🆔 Session ID: ${data.sessionId}`, 'info');
+      });
+
+      // KICKED - Expulsado por nueva sesión
+      socket.on('session:kicked', (data) => {
+        addLog(`⚠️  EXPULSADO: ${data.message}`, 'warn');
+        addLog(`📌 Razón: ${data.reason}`, 'warn');
+        updateStatus(`⚠️ EXPULSADO: ${data.message}`, false, true);
+        
+        // Limpiar UI
+        setTimeout(() => {
+          document.getElementById('loginSection').style.display = 'block';
+          document.getElementById('sessionSection').style.display = 'none';
+          token = null;
+          socket = null;
+        }, 3000);
+      });
+
+      // Ejemplo: Saldo actualizado
+      socket.on('cuenta:saldo_updated', (data) => {
+        addLog(`💰 Saldo actualizado: ${data.numeroCuenta} → $${data.saldoNuevo}`, 'success');
+      });
+
+      // Desconexión
+      socket.on('disconnect', (reason) => {
+        addLog(`❌ WebSocket desconectado: ${reason}`, 'error');
+        updateStatus('❌ Desconectado', false);
+      });
+
+      // Error
+      socket.on('connect_error', (error) => {
+        addLog(`❌ Error de conexión: ${error.message}`, 'error');
+        updateStatus('❌ Error de conexión', false);
+      });
+    }
+
+    function logout() {
+      if (socket) {
+        addLog('👋 Cerrando sesión...', 'info');
+        socket.emit('auth:logout');
+        socket.disconnect();
+      }
+      
+      token = null;
+      socket = null;
+      document.getElementById('loginSection').style.display = 'block';
+      document.getElementById('sessionSection').style.display = 'none';
+      updateStatus('❌ Desconectado', false);
+      addLog('✅ Sesión cerrada', 'success');
+    }
+
+    // Log inicial
+    addLog('🚀 Cliente inicializado', 'info');
+    addLog('📍 Servidor: http://localhost:3001', 'info');
+  </script>
+</body>
+</html>

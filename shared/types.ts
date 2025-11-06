@@ -24,6 +24,14 @@ export enum EstadoTransaccion {
   FALLIDA = "FALLIDA",
 }
 
+export enum Frecuencia {
+  DIARIA = "DIARIA",
+  SEMANAL = "SEMANAL",
+  QUINCENAL = "QUINCENAL",
+  MENSUAL = "MENSUAL",
+  ANUAL = "ANUAL",
+}
+
 // ============================================================================
 // ENTIDADES
 // ============================================================================
@@ -104,4 +112,85 @@ export interface DepositoRequest {
 export interface RetiroRequest {
   numeroCuenta: string;
   monto: number;
+}
+
+// ============== WEBSOCKET EVENTS ==============
+
+export interface SocketAuthPayload {
+  token: string;
+}
+
+export interface SessionConnectedEvent {
+  message: string;
+  usuario: Usuario;
+  sessionId: string;
+}
+
+export interface SessionKickedEvent {
+  reason: string;
+  message: string;
+  timestamp: string;
+}
+
+export interface CuentaSaldoUpdatedEvent {
+  cuentaId: string;
+  numeroCuenta: string;
+  saldoAnterior: number;
+  saldoNuevo: number;
+  timestamp: string;
+}
+
+export interface TransaccionNewEvent {
+  transaccionId: string;
+  tipo: TipoTransaccion;
+  monto: number;
+  descripcion?: string;
+  timestamp: string;
+}
+
+// ============== TIPOS PARA SERVIDOR DISTRIBUIDO ==============
+
+export interface RespuestaAPI<T = any> {
+  exitoso: boolean;
+  datos?: T;
+  error?: string;
+  marca_tiempo: Date;
+}
+
+export interface SolicitudDeposito {
+  idCuenta: string;
+  monto: number;
+  descripcion?: string;
+}
+
+export interface SolicitudRetiro {
+  idCuenta: string;
+  monto: number;
+  descripcion?: string;
+}
+
+export interface SolicitudTransferencia {
+  idCuentaOrigen: string;
+  idCuentaDestino: string;
+  monto: number;
+  descripcion?: string;
+}
+
+export interface SolicitudTarjeta {
+  idCuenta: string;
+  tipo: "DEBITO" | "CREDITO" | "PREPAGADA";
+  limiteCredito?: number;
+}
+
+export interface SolicitudPrestamo {
+  idCuenta: string;
+  monto: number;
+  plazoMeses: number;
+}
+
+export interface SolicitudInversion {
+  idCuenta: string;
+  tipo: "PLAZO_FIJO" | "FONDOS_INVERSION" | "ACCIONES" | "BONOS";
+  monto: number;
+  plazoMeses?: number;
 }

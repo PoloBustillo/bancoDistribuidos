@@ -1,6 +1,10 @@
 import express, { Request, Response, NextFunction } from "express";
+import { createServer } from "http";
+import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { authService } from "./auth/authService";
+import { sessionManager } from "./auth/sessionManager";
+import { SocketManager } from "./sockets/socketManager";
 import { logger } from "./utils/logger";
 import {
   loginSchema,
@@ -10,8 +14,12 @@ import {
 import { PrismaClient } from "@prisma/client";
 
 const app = express();
+const httpServer = createServer(app);
 const PORT = process.env.PORT || 3001;
 const prisma = new PrismaClient();
+
+// ============== INICIALIZAR SOCKET.IO ==============
+const socketManager = new SocketManager(httpServer);
 
 // ============== RATE LIMITERS ==============
 
@@ -35,6 +43,7 @@ const generalLimiter = rateLimit({
 });
 
 // Middleware
+app.use(cors()); // Habilitar CORS para todos los orígenes
 app.use(express.json());
 app.use(generalLimiter);
 
@@ -130,7 +139,23 @@ app.post(
       // Validar con Zod
       const validatedData = loginSchema.parse(req.body);
 
-      const resultado = await authService.login(validatedData);
+      // Obtener información del dispositivo
+      const deviceInfo = req.headers["user-agent"];
+      const ipAddress = req.ip || req.socket.remoteAddress;
+
+      const resultado = await authService.login(
+        validatedData,
+        deviceInfo,
+        ipAddress
+      );
+
+      // Si había una sesión anterior activa, expulsarla
+      if (resultado.socketIdAnterior) {
+        await socketManager.kickPreviousSession(
+          resultado.socketIdAnterior,
+          "Sesión iniciada en otro dispositivo"
+        );
+      }
 
       logger.info(`Login exitoso: ${validatedData.email}`);
 
@@ -295,9 +320,10 @@ app.get("/api/health", async (req: Request, res: Response) => {
   }
 });
 
-// Iniciar servidor
-app.listen(PORT, () => {
+// Iniciar servidor HTTP (con Socket.IO)
+httpServer.listen(PORT, () => {
   logger.info(`🏦 Servidor bancario iniciado en puerto ${PORT}`);
+  logger.info(`🔌 WebSocket habilitado en ws://localhost:${PORT}`);
   logger.info(`📍 Endpoints disponibles:`);
   logger.info(`   POST /api/auth/register - Registrar usuario`);
   logger.info(`   POST /api/auth/login - Iniciar sesión`);
@@ -310,11 +336,11 @@ app.listen(PORT, () => {
 // Limpiar sesiones expiradas cada hora
 setInterval(async () => {
   try {
-    await authService.limpiarSesionesExpiradas();
-    logger.info("✅ Sesiones expiradas limpiadas");
+    await sessionManager.cleanExpiredSessions();
   } catch (error) {
     logger.error("Error al limpiar sesiones:", error);
   }
 }, 60 * 60 * 1000);
 
-export default app;
+// Exportar para tests
+export { app, httpServer, socketManager };

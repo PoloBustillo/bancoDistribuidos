@@ -2,6 +2,7 @@ import { PrismaClient, EstadoCuenta } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
+import { sessionManager } from "./sessionManager";
 
 const prisma = new PrismaClient();
 const JWT_SECRET =
@@ -92,8 +93,9 @@ export class AuthService {
 
   /**
    * Iniciar sesión y generar token JWT
+   * NOTA: Solo permite 1 sesión activa por usuario (invalida sesión anterior)
    */
-  async login(data: LoginData) {
+  async login(data: LoginData, deviceInfo?: string, ipAddress?: string) {
     const { email, password } = data;
 
     // Buscar usuario por email
@@ -128,13 +130,14 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
-    await prisma.sesion.create({
-      data: {
-        jti,
-        usuarioId: usuario.id,
-        expiresAt,
-      },
-    });
+    // Crear nueva sesión (esto invalidará automáticamente la sesión anterior si existe)
+    const { socketIdAnterior } = await sessionManager.createSession(
+      usuario.id,
+      jti,
+      expiresAt,
+      deviceInfo,
+      ipAddress
+    );
 
     // Generar token JWT
     const token = jwt.sign(
@@ -156,6 +159,7 @@ export class AuthService {
       },
       cuentas: usuario.cuentas,
       mensaje: "Login exitoso",
+      socketIdAnterior, // Para que el servidor pueda desconectar la sesión anterior
     };
   }
 
