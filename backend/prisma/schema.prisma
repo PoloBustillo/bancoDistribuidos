@@ -60,17 +60,17 @@ model Sesion {
 }
 
 model CuentaBancaria {
-  id                  String        @id @default(uuid())
-  numeroCuenta        String        @unique
+  id                  String       @id @default(uuid())
+  numeroCuenta        String       @unique
   titularCuenta       String
-  saldo               Float         @default(0)
+  saldo               Float        @default(0)
   usuarioId           String?
-  estado              EstadoCuenta  @default(ACTIVA)
-  version             Int           @default(1)
-  limiteRetiroDiario  Float         @default(10000)
-  limiteTransferencia Float         @default(50000)
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  estado              EstadoCuenta @default(ACTIVA)
+  version             Int          @default(1)
+  limiteRetiroDiario  Float        @default(10000)
+  limiteTransferencia Float        @default(50000)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
   usuario              Usuario?      @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
   transaccionesOrigen  Transaccion[] @relation("CuentaOrigen")
@@ -83,15 +83,15 @@ model CuentaBancaria {
 }
 
 model Transaccion {
-  id              String             @id @default(uuid())
+  id              String            @id @default(uuid())
   tipo            TipoTransaccion
   monto           Float
   cuentaOrigenId  String?
   cuentaDestinoId String?
   descripcion     String?
-  estado          EstadoTransaccion  @default(COMPLETADA)
-  referencia      String             @unique @default(cuid())
-  createdAt       DateTime           @default(now())
+  estado          EstadoTransaccion @default(COMPLETADA)
+  referencia      String            @unique @default(cuid())
+  createdAt       DateTime          @default(now())
 
   cuentaOrigen  CuentaBancaria? @relation("CuentaOrigen", fields: [cuentaOrigenId], references: [id], onDelete: SetNull)
   cuentaDestino CuentaBancaria? @relation("CuentaDestino", fields: [cuentaDestinoId], references: [id], onDelete: SetNull)

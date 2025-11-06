@@ -60,7 +60,9 @@ async function verificarAuth(
     const resultado = await authService.verificarToken(token);
 
     if (!resultado.valido) {
-      return res.status(401).json({ error: "Token inválido o sesión expirada" });
+      return res
+        .status(401)
+        .json({ error: "Token inválido o sesión expirada" });
     }
 
     req.usuario = resultado.usuario;
