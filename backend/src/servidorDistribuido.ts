@@ -33,11 +33,55 @@ const io = new ServidorSocket(servidorHTTP, {
 
 // Generar ID único para cada sesión del servidor
 const idSesionServidor = uuidv4();
-console.log(`[SERVIDOR] ID de sesión del servidor: ${idSesionServidor}`);
+// Colores ANSI simples (sin dependencia externa)
+const ANSI = {
+  reset: "\u001b[0m",
+  bold: "\u001b[1m",
+  dim: "\u001b[2m",
+  red: "\u001b[31m",
+  green: "\u001b[32m",
+  yellow: "\u001b[33m",
+  blue: "\u001b[34m",
+  magenta: "\u001b[35m",
+  cyan: "\u001b[36m",
+};
+
+function logInfo(msg: string) {
+  console.log(`${ANSI.cyan}[INFO]${ANSI.reset} ${msg}`);
+}
+
+function logSuccess(msg: string) {
+  console.log(`${ANSI.green}${ANSI.bold}[OK]${ANSI.reset} ${msg}`);
+}
+
+function logWarn(msg: string) {
+  console.log(`${ANSI.yellow}[WARN]${ANSI.reset} ${msg}`);
+}
+
+function logError(msg: string) {
+  console.log(`${ANSI.red}[ERROR]${ANSI.reset} ${msg}`);
+}
+
+logInfo(`ID de sesión del servidor: ${idSesionServidor}`);
 
 // Middleware
 aplicacion.use(cors());
 aplicacion.use(express.json());
+
+// Logger simple para peticiones HTTP (muestra método, ruta, código y tiempo)
+aplicacion.use((req: Request, res: Response, next) => {
+  const inicio = Date.now();
+  res.on("finish", () => {
+    const duracion = Date.now() - inicio;
+    const estado = res.statusCode;
+    const color =
+      estado >= 500 ? ANSI.red : estado >= 400 ? ANSI.yellow : ANSI.green;
+    console.log(
+      `${ANSI.dim}${req.ip}${ANSI.reset} ${color}${req.method}${ANSI.reset} ${ANSI.bold}${req.originalUrl}${ANSI.reset} -> ${color}${estado}${ANSI.reset} ${ANSI.dim}${duracion}ms${ANSI.reset}`
+    );
+  });
+  next();
+});
 
 // Configurar Swagger UI
 aplicacion.use(
@@ -100,6 +144,8 @@ aplicacion.get("/salud", (req: Request, res: Response) => {
  *   get:
  *     summary: Obtiene todas las cuentas bancarias
  *     tags: [Cuentas]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Lista de cuentas
@@ -145,6 +191,8 @@ aplicacion.get("/api/cuentas", (req: Request, res: Response) => {
  *   get:
  *     summary: Obtiene una cuenta específica por ID
  *     tags: [Cuentas]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: idCuenta
@@ -296,8 +344,37 @@ aplicacion.post(
 );
 
 /**
- * POST /api/transacciones/retirar
- * Realiza un retiro
+ * @swagger
+ * /api/transacciones/retirar:
+ *   post:
+ *     summary: Realiza un retiro de una cuenta
+ *     tags: [Transacciones]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idCuenta
+ *               - monto
+ *             properties:
+ *               idCuenta:
+ *                 type: string
+ *                 example: cta-001
+ *               monto:
+ *                 type: number
+ *                 example: 200
+ *               descripcion:
+ *                 type: string
+ *                 example: Retiro en cajero
+ *     responses:
+ *       200:
+ *         description: Retiro exitoso
+ *       400:
+ *         description: Datos inválidos o saldo insuficiente
  */
 aplicacion.post(
   "/api/transacciones/retirar",
@@ -346,8 +423,41 @@ aplicacion.post(
 );
 
 /**
- * POST /api/transacciones/transferir
- * Realiza una transferencia
+ * @swagger
+ * /api/transacciones/transferir:
+ *   post:
+ *     summary: Realiza una transferencia entre cuentas
+ *     tags: [Transacciones]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idCuentaOrigen
+ *               - idCuentaDestino
+ *               - monto
+ *             properties:
+ *               idCuentaOrigen:
+ *                 type: string
+ *                 example: cta-001
+ *               idCuentaDestino:
+ *                 type: string
+ *                 example: cta-002
+ *               monto:
+ *                 type: number
+ *                 example: 150
+ *               descripcion:
+ *                 type: string
+ *                 example: Pago a proveedor
+ *     responses:
+ *       200:
+ *         description: Transferencia completada
+ *       400:
+ *         description: Error en la solicitud (saldo insuficiente, datos inválidos)
  */
 aplicacion.post(
   "/api/transacciones/transferir",
@@ -402,8 +512,36 @@ aplicacion.post(
 // ============== RUTAS REST DE HISTORIAL ==============
 
 /**
- * GET /api/transacciones/:idCuenta
- * Obtiene el historial de transacciones de una cuenta
+ * @swagger
+ * /api/transacciones/{idCuenta}:
+ *   get:
+ *     summary: Obtiene el historial de transacciones de una cuenta
+ *     tags: [Historial]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idCuenta
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la cuenta
+ *     responses:
+ *       200:
+ *         description: Historial de transacciones
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/RespuestaAPI'
+ *                 - type: object
+ *                   properties:
+ *                     datos:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Transaccion'
+ *       404:
+ *         description: Cuenta no encontrada
  */
 aplicacion.get(
   "/api/transacciones/:idCuenta",
@@ -429,8 +567,36 @@ aplicacion.get(
 );
 
 /**
- * GET /api/auditoria/:idCuenta
- * Obtiene el log de auditoría de una cuenta
+ * @swagger
+ * /api/auditoria/{idCuenta}:
+ *   get:
+ *     summary: Obtiene el log de auditoría de una cuenta
+ *     tags: [Historial]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idCuenta
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la cuenta
+ *     responses:
+ *       200:
+ *         description: Log de auditoría
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/RespuestaAPI'
+ *                 - type: object
+ *                   properties:
+ *                     datos:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       404:
+ *         description: Cuenta no encontrada
  */
 aplicacion.get("/api/auditoria/:idCuenta", (req: Request, res: Response) => {
   try {
@@ -1103,8 +1269,36 @@ aplicacion.post("/api/beneficiarios", (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/beneficiarios/:idCuenta
- * Obtiene los beneficiarios de una cuenta
+ * @swagger
+ * /api/beneficiarios/{idCuenta}:
+ *   get:
+ *     summary: Obtiene los beneficiarios de una cuenta
+ *     tags: [Beneficiarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idCuenta
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la cuenta de origen
+ *     responses:
+ *       200:
+ *         description: Lista de beneficiarios
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/RespuestaAPI'
+ *                 - type: object
+ *                   properties:
+ *                     datos:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Beneficiario'
+ *       500:
+ *         description: Error del servidor
  */
 aplicacion.get(
   "/api/beneficiarios/:idCuenta",
@@ -1129,8 +1323,35 @@ aplicacion.get(
 );
 
 /**
- * DELETE /api/beneficiarios/:idBeneficiario
- * Elimina un beneficiario
+ * @swagger
+ * /api/beneficiarios/{idBeneficiario}:
+ *   delete:
+ *     summary: Elimina un beneficiario
+ *     tags: [Beneficiarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idBeneficiario
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del beneficiario a eliminar
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               idCuenta:
+ *                 type: string
+ *                 example: "cta-001"
+ *     responses:
+ *       200:
+ *         description: Beneficiario eliminado exitosamente
+ *       404:
+ *         description: Beneficiario no encontrado
  */
 aplicacion.delete(
   "/api/beneficiarios/:idBeneficiario",
@@ -1614,8 +1835,30 @@ aplicacion.put("/api/limites/:idCuenta", (req: Request, res: Response) => {
 // ============== RUTAS ADMINISTRATIVAS ==============
 
 /**
- * GET /api/admin/bloqueos
- * Obtiene información sobre bloqueos activos
+ * @swagger
+ * /api/admin/bloqueos:
+ *   get:
+ *     summary: Obtiene información sobre bloqueos activos
+ *     tags: [Administración]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bloqueos activos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/RespuestaAPI'
+ *                 - type: object
+ *                   properties:
+ *                     datos:
+ *                       type: object
+ *                       properties:
+ *                         bloqueoActivos:
+ *                           type: array
+ *                         totalBloqueos:
+ *                           type: integer
  */
 aplicacion.get("/api/admin/bloqueos", (req: Request, res: Response) => {
   try {
@@ -1640,12 +1883,29 @@ aplicacion.get("/api/admin/bloqueos", (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/admin/estado
- * Obtiene el estado completo del sistema distribuido
+ * @swagger
+ * /api/admin/estado:
+ *   get:
+ *     summary: Obtiene el estado completo del sistema distribuido
+ *     tags: [Administración]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Estado del sistema
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/RespuestaAPI'
+ *                 - type: object
+ *                   properties:
+ *                     datos:
+ *                       type: object
  */
-aplicacion.get("/api/admin/estado", (req: Request, res: Response) => {
+aplicacion.get("/api/admin/estado", async (req: Request, res: Response) => {
   try {
-    const estado = gestorRecursos.obtenerEstadoDistribuido();
+    const estado = await gestorRecursos.obtenerEstadoDistribuido();
     const clientesConectados = gestorRecursos.obtenerClientesConectados();
 
     const respuesta = {
@@ -1785,8 +2045,8 @@ io.on("conexion", (socket) => {
   });
 
   // Evento: Solicitar estado actual
-  socket.on("solicitarEstado", (respuesta: any) => {
-    const estado = gestorRecursos.obtenerEstadoDistribuido();
+  socket.on("solicitarEstado", async (respuesta: any) => {
+    const estado = await gestorRecursos.obtenerEstadoDistribuido();
     respuesta({
       cuentas: Array.from(estado.cuentas.values()),
       transaccionesTotales: Array.from(estado.transacciones.values()).reduce(
@@ -1811,9 +2071,32 @@ io.on("conexion", (socket) => {
 
 // Iniciar servidor
 servidorHTTP.listen(puerto, () => {
-  console.log(`\n🏦 SERVIDOR BANCARIO DISTRIBUIDO INICIADO`);
-  console.log(`   Puerto: ${puerto}`);
-  console.log(`   URL HTTP: http://localhost:${puerto}`);
-  console.log(`   WebSocket: ws://localhost:${puerto}`);
-  console.log(`   Verificación: http://localhost:${puerto}/salud\n`);
+  const baseUrl = `http://localhost:${puerto}`;
+  const swaggerUrl = `${baseUrl}/api-docs`;
+  const swaggerJsonUrl = `${baseUrl}/api-docs.json`;
+
+  // Contar rutas registradas en Express
+  const rutas =
+    (aplicacion as any)._router && (aplicacion as any)._router.stack
+      ? (aplicacion as any)._router.stack.filter((s: any) => s.route).length
+      : 0;
+
+  logSuccess(`\n🏦 SERVIDOR BANCARIO DISTRIBUIDO INICIADO`);
+  logInfo(`Puerto: ${puerto}`);
+  logInfo(`HTTP: ${baseUrl}`);
+  logInfo(`WebSocket: ws://localhost:${puerto}`);
+  logInfo(`Salud: ${baseUrl}/salud`);
+  logInfo(`Swagger UI: ${swaggerUrl}`);
+  logInfo(`Swagger JSON: ${swaggerJsonUrl}`);
+  logInfo(`Rutas registradas: ${rutas}`);
+  try {
+    const tags = Array.isArray((swaggerSpec as any).tags)
+      ? (swaggerSpec as any).tags.length
+      : 0;
+    logInfo(`Documentación Swagger - tags: ${tags}`);
+  } catch (e) {
+    logWarn("No se pudo leer metadata de Swagger");
+  }
+
+  console.log(ANSI.reset);
 });
