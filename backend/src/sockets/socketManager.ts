@@ -122,7 +122,10 @@ export class SocketManager {
   /**
    * Expulsar sesión anterior cuando hay nuevo login
    */
-  async kickPreviousSession(socketId: string, reason: string = "Sesión iniciada en otro dispositivo") {
+  async kickPreviousSession(
+    socketId: string,
+    reason: string = "Sesión iniciada en otro dispositivo"
+  ) {
     try {
       const payload: SessionKickedPayload = {
         reason: "new_login",

@@ -75,7 +75,7 @@ export const SOCKET_EVENTS = {
   // Servidor → Cliente
   SESSION_CONNECTED: "session:connected",
   SESSION_KICKED: "session:kicked",
-  
+
   // Eventos de negocio
   CUENTA_SALDO_UPDATED: "cuenta:saldo_updated",
   TRANSACCION_NEW: "transaccion:new",
