@@ -1,0 +1,59 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum EstadoCuenta {
+    ACTIVA
+    BLOQUEADA
+    CERRADA
+}
+
+model Usuario {
+    id           String   @id @default(uuid())
+    nombre       String
+    email        String   @unique
+    passwordHash String
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+
+    cuentas  CuentaBancaria[]
+    sesiones Sesion[]
+
+    @@map("usuarios")
+}
+
+model Sesion {
+    id        String   @id @default(uuid())
+    usuarioId String
+    jti       String   @unique
+    createdAt DateTime @default(now())
+    expiresAt DateTime
+
+    usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+    @@index([usuarioId])
+    @@index([expiresAt])
+    @@map("sesiones")
+}
+
+model CuentaBancaria {
+    id            String       @id @default(uuid())
+    numeroCuenta  String       @unique
+    titularCuenta String
+    saldo         Float        @default(0)
+    usuarioId     String
+    estado        EstadoCuenta @default(ACTIVA)
+    createdAt     DateTime     @default(now())
+    updatedAt     DateTime     @updatedAt
+
+    usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+    @@index([usuarioId])
+    @@index([numeroCuenta])
+    @@map("cuentas_bancarias")
+}

@@ -1,0 +1,402 @@
+# 🏦 Sistema Bancario Distribuido# 🏦 Sistema Bancario Distribuido con WebSockets
+
+
+
+## 📐 Arquitectura: Coordinador-TrabajadorUn sistema hybrid frontend-backend que simula un banco en un **sistema distribuido con recursos compartidos**. Demuestra conceptos avanzados de concurrencia, sincronización y control de acceso en sistemas distribuidos con soporte para múltiples clientes conectados simultáneamente.
+
+
+
+Este proyecto implementa un **sistema bancario distribuido** usando el patrón **Coordinador-Trabajador** para gestionar operaciones concurrentes sobre cuentas bancarias compartidas.## 📋 Descripción
+
+
+
+### 🎯 ComponentesEste proyecto simula una institución bancaria moderna donde múltiples clientes pueden realizar operaciones concurrentes sobre cuentas compartidas. El sistema implementa mecanismos de control de concurrencia para evitar condiciones de carrera y asegurar la integridad de los datos. **Todos los tipos, variables y métodos están nombrados en español**.
+
+
+
+```### Características Principales
+
+┌─────────────────────────────────────────────────────────────┐
+
+│                    COORDINADOR CENTRAL                       │✅ **Múltiples cuentas bancarias** con saldos compartidos  
+
+│                      (Puerto 4000)                           │✅ **Operaciones bancarias completas**: Depósitos, retiros, transferencias  
+
+│                                                              │✅ **Gestión de tarjetas**: Débito, crédito y prepagadas  
+
+│  • Gestiona locks de recursos (cuentas bancarias)          │✅ **Sistema de préstamos**: Con amortización y pagos mensuales  
+
+│  • Tabla de locks activos con timestamps                   │✅ **Inversiones**: Plazo fijo, fondos, acciones y bonos  
+
+│  • Cola de espera con prioridades                          │✅ **Beneficiarios**: Gestión de contactos frecuentes  
+
+│  • Detección de deadlocks                                  │✅ **Notificaciones**: Sistema de alertas con prioridades  
+
+│  • Monitoreo de salud de trabajadores                      │✅ **Pagos programados**: Transferencias recurrentes automáticas  
+
+└──────────────────┬──────────────────────────────────────────┘✅ **Límites de operación**: Control de transacciones diarias  
+
+                   │✅ **Sistema de bloqueos distribuido** para evitar race conditions  
+
+        ┌──────────┼──────────┐✅ **Transacciones atómicas** entre cuentas (ACID)  
+
+        │          │          │✅ **Log de auditoría** completo de todas las operaciones  
+
+        ▼          ▼          ▼✅ **API REST** documentada con Swagger/OpenAPI  
+
+   ┌────────┐ ┌────────┐ ┌────────┐✅ **WebSockets (Socket.IO)** para comunicación en tiempo real  
+
+   │ WORKER │ │ WORKER │ │ WORKER │✅ **Multi-cliente simultáneo**: Múltiples clientes conectados a la vez  
+
+   │  3001  │ │  3002  │ │  3003  │✅ **Sincronización en tiempo real**: Todos ven los cambios instantáneamente  
+
+   └────────┘ └────────┘ └────────┘✅ **Documentación interactiva**: Swagger UI para probar la API  
+
+        │          │          │✅ **Frontend interactivo** con React  
+
+        └──────────┼──────────┘✅ **Código 100% en español**  
+
+                   │
+
+                   ▼## 🏗️ Arquitectura
+
+          ┌────────────────┐
+
+          │   PostgreSQL   │```
+
+          │   (Compartida) │┌─────────────────────────────────────────┐
+
+          └────────────────┘│         FRONTEND (React)                │
+
+```│  - Gestión de cuentas                   │
+
+│  - Formulario de transacciones          │
+
+### 🔐 Flujo de Operación con Locks│  - Historial y auditoría               │
+
+│  - Dashboard administrativo             │
+
+**Ejemplo: Transferencia entre cuentas**└────────────────┬────────────────────────┘
+
+                 │ HTTP/REST
+
+```┌────────────────▼────────────────────────┐
+
+1. Cliente → Worker1: "Transferir $100 de CTA-A a CTA-B"│    BACKEND (Node.js + Express)          │
+
+│  - API REST endpoints                   │
+
+2. Worker1 → Coordinador: LOCK_REQUEST [CTA-A, CTA-B]│  - Validación de operaciones            │
+
+   │  - Control de bloqueos distribuido      │
+
+3. Coordinador verifica:│  - Manejo de transacciones atómicas     │
+
+   - ¿Están disponibles CTA-A y CTA-B?└────────────────┬────────────────────────┘
+
+   - ✅ SÍ → LOCK_GRANTED                 │
+
+   - ❌ NO → Agrega a cola de espera┌────────────────▼────────────────────────┐
+
+│  GESTOR DE RECURSOS DISTRIBUIDOS       │
+
+4. Worker1 recibe LOCK_GRANTED:│  - Sistema de locks (mutex)             │
+
+   - Lee saldos de BD│  - Manejo de cuentas compartidas        │
+
+   - Valida operación│  - Log de transacciones                │
+
+   - Actualiza saldos en BD│  - Sincronización de estado            │
+
+   - Worker1 → Coordinador: LOCK_RELEASE [CTA-A, CTA-B]└─────────────────────────────────────────┘
+
+```
+
+5. Coordinador libera locks:
+
+   - Procesa cola de espera## 🔧 Tecnologías
+
+   - Concede locks a siguiente en fila
+
+```### Backend
+
+- **Node.js** - Runtime de JavaScript en servidor
+
+### 📁 Estructura del Proyecto- **Express.js** - Framework web minimalista
+
+- **TypeScript** - Tipado fuerte en JavaScript
+
+```- **UUID** - Generación de IDs únicos
+
+Banco/
+
+├── coordinador/          # Servidor coordinador de locks### Frontend
+
+│   ├── src/- **React** - Librería de UI
+
+│   │   ├── server.ts    # Servidor Socket.IO en puerto 4000- **TypeScript** - Tipado fuerte
+
+│   │   ├── coordinator.ts- **Axios** - Cliente HTTP
+
+│   │   └── types.ts- **React Icons** - Iconos SVG
+
+│   ├── package.json- **CSS3** - Estilos modernos (Flexbox, Grid)
+
+│   └── tsconfig.json
+
+│### Shared
+
+├── worker/              # Instancias del banco (workers)- **Types.ts** - Tipos compartidos entre frontend y backend
+
+│   ├── src/
+
+│   │   ├── server.ts    # API REST + Auth## 📁 Estructura del Proyecto
+
+│   │   ├── auth/        # Autenticación
+
+│   │   ├── services/    # Lógica de negocio```
+
+│   │   ├── client/      # Cliente del coordinador/Banco
+
+│   │   └── prisma/      # Schema de BD├── backend/
+
+│   ├── package.json│   ├── src/
+
+│   └── tsconfig.json│   │   ├── server.ts           # Servidor Express principal
+
+││   │   ├── resourceManager.ts  # Gestor de recursos distribuidos
+
+├── shared/              # Tipos compartidos│   │   └── types.ts            # Tipos compartidos
+
+│   └── types.ts         # Protocolo de comunicación│   ├── package.json
+
+││   └── tsconfig.json
+
+└── scripts/             # Scripts de deployment├── frontend/
+
+    ├── start-all.sh     # Inicia coordinador + 3 workers│   ├── src/
+
+    └── stop-all.sh│   │   ├── App.tsx             # Componente principal
+
+```│   │   ├── index.tsx           # Entry point
+
+│   │   ├── api.ts              # Cliente HTTP
+
+### 🚀 Inicio Rápido│   │   ├── types.ts            # Tipos
+
+│   │   ├── components/
+
+```bash│   │   │   ├── AccountList.tsx
+
+# 1. Instalar dependencias│   │   │   ├── TransactionForm.tsx
+
+cd coordinador && bun install│   │   │   ├── TransactionHistory.tsx
+
+cd ../worker && bun install│   │   │   └── AdminDashboard.tsx
+
+│   │   ├── styles/
+
+# 2. Configurar base de datos│   │   │   ├── AccountList.css
+
+cd worker│   │   │   ├── TransactionForm.css
+
+echo "DATABASE_URL=postgresql://user:pass@host:5432/banco" > .env│   │   │   ├── TransactionHistory.css
+
+bunx prisma db push│   │   │   └── AdminDashboard.css
+
+│   │   ├── index.css
+
+# 3. Iniciar coordinador│   │   └── App.css
+
+cd ../coordinador│   ├── public/
+
+bun run dev    # Puerto 4000│   │   └── index.html
+
+│   └── package.json
+
+# 4. Iniciar workers (en terminales separadas)├── shared/
+
+cd ../worker│   └── types.ts                # Tipos compartidos
+
+PORT=3001 WORKER_ID=worker-1 bun run dev└── docs/
+
+PORT=3002 WORKER_ID=worker-2 bun run dev```
+
+PORT=3003 WORKER_ID=worker-3 bun run dev
+
+```## 🚀 Quick Start
+
+
+
+### 🔒 Protocolo de Locks### Instalación
+
+
+
+#### Mensajes Worker → Coordinador1. **Instalar dependencias del Backend**
+
+```bash
+
+| Mensaje | Descripción |cd backend && npm install && cd ..
+
+|---------|-------------|```
+
+| `REGISTER_WORKER` | Registrar trabajador al conectar |
+
+| `LOCK_REQUEST` | Solicitar lock sobre recursos |2. **Instalar dependencias del Frontend**
+
+| `LOCK_RELEASE` | Liberar lock |```bash
+
+| `HEARTBEAT` | Señal de vida (cada 3s) |cd frontend && npm install && cd ..
+
+```
+
+#### Mensajes Coordinador → Worker
+
+### Ejecución
+
+| Mensaje | Descripción |
+
+|---------|-------------|**Terminal 1: Backend**
+
+| `WORKER_REGISTERED` | Confirmación de registro |```bash
+
+| `LOCK_GRANTED` | Lock concedido |cd backend && npm run dev
+
+| `LOCK_DENIED` | Lock denegado (en cola) |```
+
+| `FORCE_RELEASE` | Forzar liberación por timeout |
+
+**Terminal 2: Frontend**
+
+### 📊 Ejemplo de Request```bash
+
+cd frontend && npm start
+
+```typescript```
+
+// Worker solicita lock para transferencia
+
+{✅ Backend: http://localhost:3001
+
+  tipo: "LOCK_REQUEST",✅ Frontend: http://localhost:3000
+
+  workerId: "worker-1",✅ **Swagger API Docs**: http://localhost:3001/api-docs
+
+  requestId: "uuid-123",
+
+  recursos: [## 📚 Documentación de la API (Swagger)
+
+    { tipo: "CUENTA", id: "cuenta-abc" },
+
+    { tipo: "CUENTA", id: "cuenta-xyz" }El sistema incluye documentación interactiva de la API usando **Swagger/OpenAPI 3.0**.
+
+  ],
+
+  prioridad: 1,  // 0=BAJA, 1=NORMAL, 2=ALTA, 3=CRITICA### Acceder a Swagger UI
+
+  timeout: 10000,  // 10 segundos
+
+  operacion: "transferencia"Una vez que el backend esté corriendo, visita:
+
+}
+
+```🔗 **http://localhost:3001/api-docs**
+
+
+
+### ⚡ Características### Características de Swagger UI
+
+
+
+- ✅ **Locks distribuidos** con coordinación centralizada- 📖 **Documentación completa** de todos los endpoints REST
+
+- ✅ **Prioridades** en cola de espera- 🧪 **Pruebas interactivas** - Ejecuta requests directamente desde el navegador
+
+- ✅ **Timeouts** automáticos para evitar deadlocks- 📋 **Esquemas de datos** - Visualiza todas las estructuras de tipos
+
+- ✅ **Heartbeats** para detección de workers caídos- 🏷️ **Agrupación por tags** - Endpoints organizados por categoría:
+
+- ✅ **Liberación automática** al desconectar worker  - 💳 Cuentas
+
+- ✅ **Múltiples recursos** en una sola solicitud (atomicidad)  - 💸 Transacciones (Depósito, Retiro, Transferencia)
+
+- ✅ **Base de datos compartida** (PostgreSQL)  - 🎴 Tarjetas (Débito, Crédito, Prepagadas)
+
+  - 💰 Préstamos
+
+### 🛠️ Tecnologías  - 📈 Inversiones
+
+  - 👥 Beneficiarios
+
+- **Runtime**: Bun  - 🔔 Notificaciones
+
+- **Framework**: Express.js  - ⏰ Pagos Programados
+
+- **WebSockets**: Socket.IO (coordinador ↔ workers)  - 🛡️ Límites
+
+- **Base de Datos**: PostgreSQL + Prisma ORM  - 📊 Historial y Auditoría
+
+- **Auth**: JWT + bcrypt  - ⚙️ Administración
+
+- **Validación**: Zod
+
+- **Rate Limiting**: express-rate-limit### Ejemplo de uso de Swagger
+
+
+
+---1. Abre http://localhost:3001/api-docs
+
+2. Selecciona un endpoint (ej: `POST /api/transacciones/depositar`)
+
+**Autor**: Sistema Bancario Distribuido  3. Click en "Try it out"
+
+**Patrón**: Coordinador-Trabajador  4. Modifica el JSON de ejemplo con tus datos
+
+**Licencia**: MIT5. Click en "Execute"
+
+6. Observa la respuesta en tiempo real
+
+### Exportar especificación OpenAPI
+
+El spec JSON completo está disponible en:
+```
+GET http://localhost:3001/api-docs.json
+```
+
+Puedes importar este JSON en herramientas como Postman, Insomnia, o cualquier cliente que soporte OpenAPI 3.0.## 📊 Datos de Ejemplo
+
+| Cuenta | Titular | Número | Saldo |
+|--------|---------|--------|-------|
+| acc-001 | Juan Pérez | 1000001 | $5,000 |
+| acc-002 | María García | 1000002 | $3,500 |
+| acc-003 | Carlos López | 1000003 | $7,200 |
+
+## 🔐 Control de Concurrencia
+
+El sistema implementa:
+- ✅ **Mutex**: Exclusión mutua para acceso a cuentas
+- ✅ **Bloqueos Distribuidos**: Prevención de race conditions
+- ✅ **Transacciones Atómicas**: Operaciones indivisibles
+- ✅ **Prevención de Deadlock**: Adquisición ordenada de locks
+
+## 📡 Operaciones Disponibles
+
+- **Depósitos**: POST `/api/transactions/deposit`
+- **Retiros**: POST `/api/transactions/withdrawal`
+- **Transferencias**: POST `/api/transactions/transfer`
+- **Historial**: GET `/api/transactions/{accountId}`
+- **Auditoría**: GET `/api/audit/{accountId}`
+- **Admin**: GET `/api/admin/state`
+
+## 🎓 Conceptos Aprendidos
+
+✅ Sincronización de recursos compartidos  
+✅ Manejo de condiciones de carrera  
+✅ Transacciones ACID  
+✅ Auditoría y logging  
+✅ APIs REST  
+✅ Desarrollo full-stack  
+
+---
+
+**¡Explora los sistemas distribuidos!** 🚀
