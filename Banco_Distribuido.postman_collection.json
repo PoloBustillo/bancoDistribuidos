@@ -1,0 +1,726 @@
+{
+	"info": {
+		"_postman_id": "banco-distribuido-2024",
+		"name": "Banco Distribuido - Sistema de Locks",
+		"description": "Colección para probar el sistema bancario distribuido con coordinador central de locks.\n\n## 🏗️ Arquitectura\n- **Coordinador**: Puerto 4000 (gestión de locks)\n- **Workers**: Puertos automáticos o 3001, 3002, 3003\n\n## 🔐 Autenticación\n1. Registrar usuario\n2. Login (obtener token JWT)\n3. Usar token en header `Authorization: Bearer <token>`\n\n## 💰 Flujo de Prueba\n1. Registrar 2 usuarios (obtienes cuenta automáticamente)\n2. Login con cada usuario\n3. Consultar saldo inicial\n4. Hacer depósitos\n5. Hacer transferencias\n6. Hacer retiros\n7. Verificar locks distribuidos funcionan",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "🔐 Autenticación",
+			"item": [
+				{
+					"name": "Registrar Usuario 1",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Guardar datos del usuario 1",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('usuario1_id', response.usuario.id);",
+									"    pm.environment.set('usuario1_email', response.usuario.email);",
+									"    pm.environment.set('cuenta1_id', response.cuenta.id);",
+									"    pm.environment.set('cuenta1_numero', response.cuenta.numeroCuenta);",
+									"    console.log('✅ Usuario 1 registrado');",
+									"    console.log('   Email:', response.usuario.email);",
+									"    console.log('   Cuenta:', response.cuenta.numeroCuenta);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Juan Pérez\",\n  \"email\": \"juan@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"register"
+							]
+						},
+						"description": "Registra un nuevo usuario. Automáticamente se crea una cuenta bancaria con saldo inicial de 0."
+					},
+					"response": []
+				},
+				{
+					"name": "Registrar Usuario 2",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Guardar datos del usuario 2",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('usuario2_id', response.usuario.id);",
+									"    pm.environment.set('usuario2_email', response.usuario.email);",
+									"    pm.environment.set('cuenta2_id', response.cuenta.id);",
+									"    pm.environment.set('cuenta2_numero', response.cuenta.numeroCuenta);",
+									"    console.log('✅ Usuario 2 registrado');",
+									"    console.log('   Email:', response.usuario.email);",
+									"    console.log('   Cuenta:', response.cuenta.numeroCuenta);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"María González\",\n  \"email\": \"maria@example.com\",\n  \"password\": \"password456\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"register"
+							]
+						},
+						"description": "Registra un segundo usuario para probar transferencias entre cuentas."
+					},
+					"response": []
+				},
+				{
+					"name": "Login Usuario 1",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Guardar token del usuario 1",
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('token_usuario1', response.token);",
+									"    console.log('✅ Usuario 1 autenticado');",
+									"    console.log('   Token guardado en: token_usuario1');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"juan@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Autentica al usuario 1 y obtiene token JWT."
+					},
+					"response": []
+				},
+				{
+					"name": "Login Usuario 2",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Guardar token del usuario 2",
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('token_usuario2', response.token);",
+									"    console.log('✅ Usuario 2 autenticado');",
+									"    console.log('   Token guardado en: token_usuario2');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"maria@example.com\",\n  \"password\": \"password456\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Autentica al usuario 2 y obtiene token JWT."
+					},
+					"response": []
+				},
+				{
+					"name": "Mi Perfil (Usuario 1)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_usuario1}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"me"
+							]
+						},
+						"description": "Obtiene el perfil del usuario autenticado y sus cuentas bancarias."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout (Usuario 1)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_usuario1}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"logout"
+							]
+						},
+						"description": "Cierra la sesión del usuario (invalida el token)."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints para registro, login y gestión de sesiones."
+		},
+		{
+			"name": "💰 Operaciones Bancarias",
+			"item": [
+				{
+					"name": "Consultar Saldo (Usuario 1)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_usuario1}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/banco/saldo/{{cuenta1_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"banco",
+								"saldo",
+								"{{cuenta1_id}}"
+							]
+						},
+						"description": "Consulta el saldo de la cuenta del usuario 1 (no requiere locks)."
+					},
+					"response": []
+				},
+				{
+					"name": "Consultar Saldo (Usuario 2)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_usuario2}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/banco/saldo/{{cuenta2_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"banco",
+								"saldo",
+								"{{cuenta2_id}}"
+							]
+						},
+						"description": "Consulta el saldo de la cuenta del usuario 2 (no requiere locks)."
+					},
+					"response": []
+				},
+				{
+					"name": "Depósito Usuario 1 ($1000)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_usuario1}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cuentaId\": \"{{cuenta1_id}}\",\n  \"monto\": 1000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/banco/depositar",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"banco",
+								"depositar"
+							]
+						},
+						"description": "Deposita $1000 en la cuenta del usuario 1. Usa lock distribuido."
+					},
+					"response": []
+				},
+				{
+					"name": "Depósito Usuario 2 ($2000)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_usuario2}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cuentaId\": \"{{cuenta2_id}}\",\n  \"monto\": 2000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/banco/depositar",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"banco",
+								"depositar"
+							]
+						},
+						"description": "Deposita $2000 en la cuenta del usuario 2. Usa lock distribuido."
+					},
+					"response": []
+				},
+				{
+					"name": "Transferencia: Usuario 1 → Usuario 2 ($300)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_usuario1}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cuentaOrigenId\": \"{{cuenta1_id}}\",\n  \"cuentaDestinoId\": \"{{cuenta2_id}}\",\n  \"monto\": 300\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/banco/transferir",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"banco",
+								"transferir"
+							]
+						},
+						"description": "Transfiere $300 de Usuario 1 a Usuario 2. Usa locks en ambas cuentas (ordenados para evitar deadlocks)."
+					},
+					"response": []
+				},
+				{
+					"name": "Retiro Usuario 1 ($200)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_usuario1}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cuentaId\": \"{{cuenta1_id}}\",\n  \"monto\": 200\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/banco/depositar",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"banco",
+								"retirar"
+							]
+						},
+						"description": "Retira $200 de la cuenta del usuario 1. Usa lock distribuido y valida saldo suficiente."
+					},
+					"response": []
+				},
+				{
+					"name": "Retiro Usuario 2 ($500)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_usuario2}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cuentaId\": \"{{cuenta2_id}}\",\n  \"monto\": 500\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/banco/retirar",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"banco",
+								"retirar"
+							]
+						},
+						"description": "Retira $500 de la cuenta del usuario 2. Usa lock distribuido y valida saldo suficiente."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints bancarios que utilizan locks distribuidos."
+		},
+		{
+			"name": "🔧 Utilidades",
+			"item": [
+				{
+					"name": "Health Check Worker",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"health"
+							]
+						},
+						"description": "Verifica el estado del worker: ID, puerto, conexión al coordinador."
+					},
+					"response": []
+				},
+				{
+					"name": "Stats Coordinador",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:4000/stats",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"stats"
+							]
+						},
+						"description": "Obtiene estadísticas del coordinador: workers conectados, locks activos, cola de espera."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints de monitoreo y diagnóstico."
+		},
+		{
+			"name": "🧪 Pruebas de Concurrencia",
+			"item": [
+				{
+					"name": "Transferencia Concurrente 1",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_usuario1}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cuentaOrigenId\": \"{{cuenta1_id}}\",\n  \"cuentaDestinoId\": \"{{cuenta2_id}}\",\n  \"monto\": 50\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/banco/transferir",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"banco",
+								"transferir"
+							]
+						},
+						"description": "Ejecuta múltiples de estas requests simultáneamente para probar locks distribuidos."
+					},
+					"response": []
+				},
+				{
+					"name": "Transferencia Concurrente 2",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_usuario2}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cuentaOrigenId\": \"{{cuenta2_id}}\",\n  \"cuentaDestinoId\": \"{{cuenta1_id}}\",\n  \"monto\": 50\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/banco/transferir",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"banco",
+								"transferir"
+							]
+						},
+						"description": "Transferencia inversa para probar deadlock prevention (ordenamiento de locks)."
+					},
+					"response": []
+				},
+				{
+					"name": "Múltiples Depósitos Concurrentes",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_usuario1}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cuentaId\": \"{{cuenta1_id}}\",\n  \"monto\": 100\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/banco/depositar",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"banco",
+								"depositar"
+							]
+						},
+						"description": "Ejecuta varias veces simultáneamente para probar serialización de operaciones."
+					},
+					"response": []
+				}
+			],
+			"description": "Requests para probar el sistema bajo concurrencia. Usa Postman Runner para ejecutar múltiples veces simultáneamente."
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3001",
+			"type": "string"
+		}
+	]
+}

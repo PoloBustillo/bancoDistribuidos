@@ -10,15 +10,16 @@ const app = express();
 const prisma = new PrismaClient();
 
 // Configuración desde variables de entorno
-const PORT = parseInt(process.env.PORT || "3001");
-const WORKER_ID = process.env.WORKER_ID || `worker-${PORT}`;
+let PORT = parseInt(process.env.PORT || "0"); // 0 = puerto automático
 const COORDINADOR_URL = process.env.COORDINADOR_URL || "http://localhost:4000";
 
-// Inicializar cliente del coordinador
-const workerClient = new WorkerClient(WORKER_ID, PORT, COORDINADOR_URL);
+// Variables que se establecerán después de obtener el puerto real
+let ACTUAL_PORT = PORT;
+let WORKER_ID = "";
+let workerClient: WorkerClient;
 
-// Inicializar servicio bancario
-const bancoService = new BancoService(workerClient);
+// Inicializar servicio bancario (se pasará workerClient después)
+const bancoService = new BancoService(null as any);
 
 app.use(express.json());
 
@@ -261,11 +262,11 @@ app.get(
 app.get("/api/health", (req: Request, res: Response) => {
   res.json({
     status: "OK",
-    workerId: WORKER_ID,
-    puerto: PORT,
+    workerId: WORKER_ID || "initializing",
+    puerto: ACTUAL_PORT,
     coordinador: {
       url: COORDINADOR_URL,
-      conectado: workerClient.estaConectado(),
+      conectado: workerClient?.estaConectado() ?? false,
     },
     timestamp: new Date().toISOString(),
   });
@@ -273,20 +274,34 @@ app.get("/api/health", (req: Request, res: Response) => {
 
 // Iniciar servidor
 async function iniciar() {
-  try {
-    // Conectar al coordinador
-    console.log(`🔌 Intentando conectar al coordinador...`);
-    await workerClient.conectar();
-    console.log(`✅ Conectado al coordinador central`);
-  } catch (error) {
-    console.log(
-      `⚠️ No se pudo conectar al coordinador, continuando sin locks distribuidos`
-    );
-  }
+  // Primero iniciar el servidor para obtener el puerto real
+  const server = app.listen(PORT, async () => {
+    // Obtener el puerto real asignado
+    const address = server.address();
+    ACTUAL_PORT =
+      typeof address === "object" && address !== null ? address.port : PORT;
 
-  app.listen(PORT, () => {
+    // Ahora sí crear WORKER_ID y workerClient con el puerto real
+    WORKER_ID = process.env.WORKER_ID || `worker-${ACTUAL_PORT}`;
+    workerClient = new WorkerClient(WORKER_ID, ACTUAL_PORT, COORDINADOR_URL);
+
+    // Actualizar el workerClient en bancoService
+    (bancoService as any).workerClient = workerClient;
+
+    // Intentar conectar al coordinador
+    try {
+      console.log(`🔌 Intentando conectar al coordinador...`);
+      await workerClient.conectar();
+      console.log(`✅ Conectado al coordinador central`);
+    } catch (error) {
+      console.log(
+        `⚠️ No se pudo conectar al coordinador, continuando sin locks distribuidos`
+      );
+    }
+
+    // Mostrar información del servidor
     console.log(`\n🏦 Worker ${WORKER_ID} iniciado`);
-    console.log(`📍 Puerto: ${PORT}`);
+    console.log(`📍 Puerto: ${ACTUAL_PORT}`);
     console.log(`🔌 Coordinador: ${COORDINADOR_URL}`);
     console.log(
       `🔐 Locks distribuidos: ${

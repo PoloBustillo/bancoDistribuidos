@@ -1,32 +1,68 @@
-# 🏦 Sistema Bancario Distribuido# 🏦 Sistema Bancario Distribuido con WebSockets
+# 🏦 Sistema Bancario Distribuido con Locks Coordinados
 
+Un sistema bancario distribuido que implementa el patrón **Coordinador-Trabajador** para gestionar operaciones concurrentes sobre cuentas bancarias compartidas usando **locks distribuidos**.
 
+## � Arquitectura
 
-## 📐 Arquitectura: Coordinador-TrabajadorUn sistema hybrid frontend-backend que simula un banco en un **sistema distribuido con recursos compartidos**. Demuestra conceptos avanzados de concurrencia, sincronización y control de acceso en sistemas distribuidos con soporte para múltiples clientes conectados simultáneamente.
+### 🎯 Componentes
 
-
-
-Este proyecto implementa un **sistema bancario distribuido** usando el patrón **Coordinador-Trabajador** para gestionar operaciones concurrentes sobre cuentas bancarias compartidas.## 📋 Descripción
-
-
-
-### 🎯 ComponentesEste proyecto simula una institución bancaria moderna donde múltiples clientes pueden realizar operaciones concurrentes sobre cuentas compartidas. El sistema implementa mecanismos de control de concurrencia para evitar condiciones de carrera y asegurar la integridad de los datos. **Todos los tipos, variables y métodos están nombrados en español**.
-
-
-
-```### Características Principales
-
+```
 ┌─────────────────────────────────────────────────────────────┐
+│                    COORDINADOR CENTRAL                       │
+│                      (Puerto 4000)                           │
+│                                                              │
+│  • Gestiona locks de recursos (cuentas bancarias)          │
+│  • Cola de prioridad para solicitudes de locks             │
+│  • Verificación de heartbeats de workers                   │
+│  • Liberación automática de locks expirados                │
+│  • Estadísticas en tiempo real                             │
+└─────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        │                     │                     │
+┌───────▼────────┐    ┌───────▼────────┐    ┌──────▼─────────┐
+│   WORKER 1     │    │   WORKER 2     │    │   WORKER 3     │
+│ Puerto: Auto   │    │ Puerto: Auto   │    │ Puerto: Auto   │
+│                │    │                │    │                │
+│ • Auth (JWT)   │    │ • Auth (JWT)   │    │ • Auth (JWT)   │
+│ • Operaciones  │    │ • Operaciones  │    │ • Operaciones  │
+│   bancarias    │    │   bancarias    │    │   bancarias    │
+│ • Solicita     │    │ • Solicita     │    │ • Solicita     │
+│   locks        │    │   locks        │    │   locks        │
+└────────┬───────┘    └────────┬───────┘    └────────┬───────┘
+         │                     │                     │
+         └─────────────────────┴─────────────────────┘
+                              │
+                   ┌──────────▼──────────┐
+                   │   PostgreSQL DB     │
+                   │  (Compartida)       │
+                   │                     │
+                   │ • Usuarios          │
+                   │ • Sesiones          │
+                   │ • Cuentas           │
+                   └─────────────────────┘
+```
 
-│                    COORDINADOR CENTRAL                       │✅ **Múltiples cuentas bancarias** con saldos compartidos  
+## ✨ Características Principales
 
-│                      (Puerto 4000)                           │✅ **Operaciones bancarias completas**: Depósitos, retiros, transferencias  
+### 🔐 Autenticación Distribuida
+- ✅ **JWT tokens** compartidos entre workers
+- ✅ **Sesión única**: Login en un worker invalida sesiones en otros (configurable)
+- ✅ **Base de datos compartida**: Todos los workers ven las mismas sesiones
+- ✅ **SINGLE_SESSION mode**: `true` = 1 sesión por usuario, `false` = múltiples dispositivos
 
-│                                                              │✅ **Gestión de tarjetas**: Débito, crédito y prepagadas  
+### 💰 Operaciones Bancarias con Locks
+- ✅ **Depósitos**: Con lock de cuenta individual
+- ✅ **Retiros**: Validación de saldo + lock
+- ✅ **Transferencias**: Lock de 2 cuentas ordenadas (previene deadlock)
+- ✅ **Consulta saldo**: Sin locks (lectura simple)
 
-│  • Gestiona locks de recursos (cuentas bancarias)          │✅ **Sistema de préstamos**: Con amortización y pagos mensuales  
-
-│  • Tabla de locks activos con timestamps                   │✅ **Inversiones**: Plazo fijo, fondos, acciones y bonos  
+### 🔒 Sistema de Locks Distribuidos
+- ✅ **Coordinador central**: Gestiona todos los locks
+- ✅ **Cola de prioridad**: BAJA, NORMAL, ALTA, CRÍTICA
+- ✅ **Timeouts automáticos**: Locks expiran en 30s
+- ✅ **Heartbeat monitoring**: Workers muertos liberan sus locks
+- ✅ **Prevención de deadlocks**: Ordenamiento consistente de recursos  
 
 │  • Cola de espera con prioridades                          │✅ **Beneficiarios**: Gestión de contactos frecuentes  
 

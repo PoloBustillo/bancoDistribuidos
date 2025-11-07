@@ -8,6 +8,11 @@ const JWT_SECRET =
   process.env.JWT_SECRET || "B4nc0S3cur3_2024_D1str1but3d_JWT_S3cr3t";
 const JWT_EXPIRATION = "24h";
 
+// 🔐 Configuración de sesiones
+// SINGLE_SESSION: true = Solo 1 sesión activa por usuario (más seguro)
+// SINGLE_SESSION: false = Múltiples sesiones permitidas (ej: móvil + web)
+const SINGLE_SESSION = process.env.SINGLE_SESSION !== "false"; // Por defecto: true
+
 interface TokenPayload {
   usuarioId: string;
   email: string;
@@ -85,10 +90,29 @@ export class AuthService {
       throw new Error("Credenciales inválidas");
     }
 
+    // 🔐 INVALIDAR SESIONES ANTERIORES (si está configurado)
+    // Esto asegura que si el usuario hace login en otro worker,
+    // sus sesiones anteriores se invalidan automáticamente
+    if (SINGLE_SESSION) {
+      const sesionesPrevias = await prisma.sesion.count({
+        where: { usuarioId: usuario.id },
+      });
+
+      if (sesionesPrevias > 0) {
+        await prisma.sesion.deleteMany({
+          where: { usuarioId: usuario.id },
+        });
+        console.log(
+          `🔒 Sesiones previas invalidadas para usuario ${usuario.email} (${sesionesPrevias})`
+        );
+      }
+    }
+
     const jti = uuidv4();
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
+    // Crear nueva sesión (única válida si SINGLE_SESSION=true)
     await prisma.sesion.create({
       data: {
         usuarioId: usuario.id,
