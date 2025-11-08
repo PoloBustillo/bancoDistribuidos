@@ -1,3 +1,17 @@
+// ========================================
+// 🎓 WORKER CLIENT - Cliente de Locks Distribuidos
+// ========================================
+// Este componente implementa el lado del WORKER en el
+// sistema de locks distribuidos.
+//
+// Conceptos de Sistemas Distribuidos aplicados:
+// - Cliente-Servidor: Workers son clientes del coordinador
+// - Comunicación asíncrona: Socket.IO para mensajes
+// - Heartbeat: Detección de fallas con envío periódico de "estoy vivo"
+// - Timeouts: Prevención de espera infinita
+// - Manejo de errores: Reconexión automática
+// ========================================
+
 import { io } from "socket.io-client";
 import type { Socket } from "socket.io-client";
 import { v4 as uuidv4 } from "uuid";
@@ -25,12 +39,14 @@ export class WorkerClient {
   private puerto: number;
   private coordinadorUrl: string;
   private conectado: boolean = false;
+
+  // 🎓 ESTADO LOCAL: Locks activos y pendientes
   private locksActivos: Map<string, string[]> = new Map();
   private locksPendientes: Map<string, LockPendiente> = new Map();
   private heartbeatInterval: NodeJS.Timeout | null = null;
 
-  private readonly HEARTBEAT_INTERVAL = 3000;
-  private readonly DEFAULT_LOCK_TIMEOUT = 10000;
+  private readonly HEARTBEAT_INTERVAL = 3000; // 3s
+  private readonly DEFAULT_LOCK_TIMEOUT = 10000; // 10s
 
   constructor(
     workerId: string,
@@ -46,6 +62,13 @@ export class WorkerClient {
     return new Promise((resolve, reject) => {
       console.log(`🔌 Conectando al coordinador: ${this.coordinadorUrl}`);
 
+      // ========================================
+      // 🎓 CONEXIÓN CON COORDINADOR
+      // ========================================
+      // Socket.IO con WebSockets para comunicación
+      // bidireccional en tiempo real.
+      // Reconexión automática para tolerancia a fallas.
+      // ========================================
       this.socket = io(this.coordinadorUrl, {
         transports: ["websocket"],
         reconnection: true,
@@ -56,7 +79,7 @@ export class WorkerClient {
       this.socket.on("connect", () => {
         console.log(`✅ Conectado al coordinador`);
         this.registrar();
-        this.iniciarHeartbeat();
+        this.iniciarHeartbeat(); // 🎓 Iniciar envío de heartbeats
         this.conectado = true;
         resolve();
       });
@@ -76,12 +99,13 @@ export class WorkerClient {
         console.log(`✅ Trabajador registrado: ${this.workerId}`);
       });
 
+      // 🎓 MANEJADORES DE RESPUESTAS DEL COORDINADOR
       this.socket.on(TipoMensaje.LOCK_GRANTED, (msg: LockGranted) => {
-        this.manejarLockGranted(msg);
+        this.manejarLockGranted(msg); // Lock concedido
       });
 
       this.socket.on(TipoMensaje.LOCK_DENIED, (msg: LockDenied) => {
-        this.manejarLockDenied(msg);
+        this.manejarLockDenied(msg); // Lock denegado (en cola)
       });
 
       this.socket.on(TipoMensaje.FORCE_RELEASE, (msg: any) => {
@@ -94,6 +118,14 @@ export class WorkerClient {
   private registrar(): void {
     if (!this.socket) return;
 
+    // ========================================
+    // 🎓 REGISTRO DEL WORKER
+    // ========================================
+    // Al conectarse, el worker se registra en el
+    // coordinador enviando su ID, puerto y capacidad.
+    // Esto permite al coordinador mantener un registro
+    // de todos los workers activos.
+    // ========================================
     const msg: RegisterWorker = {
       tipo: TipoMensaje.REGISTER_WORKER,
       timestamp: Date.now(),
@@ -107,6 +139,14 @@ export class WorkerClient {
   }
 
   private iniciarHeartbeat(): void {
+    // ========================================
+    // 🎓 HEARTBEAT (Detección de Fallas)
+    // ========================================
+    // Envía un mensaje cada 3 segundos al coordinador
+    // para indicar que este worker está vivo y funcional.
+    // Si el coordinador no recibe heartbeat por 30s,
+    // marca el worker como muerto y libera sus locks.
+    // ========================================
     this.heartbeatInterval = setInterval(() => {
       this.enviarHeartbeat();
     }, this.HEARTBEAT_INTERVAL);
@@ -127,13 +167,28 @@ export class WorkerClient {
       timestamp: Date.now(),
       workerId: this.workerId,
       requestId: uuidv4(),
-      estado: this.locksActivos.size > 0 ? "BUSY" : "IDLE",
-      locksActivos: this.locksActivos.size,
+      estado: this.locksActivos.size > 0 ? "BUSY" : "IDLE", // Estado actual
+      locksActivos: this.locksActivos.size, // Cantidad de locks activos
     };
 
     this.socket.emit(TipoMensaje.HEARTBEAT, msg);
   }
 
+  // ========================================
+  // 🎓 SOLICITUD DE LOCK DISTRIBUIDO
+  // ========================================
+  // Método principal para solicitar acceso exclusivo
+  // a uno o más recursos (cuentas).
+  //
+  // Parámetros:
+  // - recursos: Array de recursos a bloquear
+  // - operacion: Descripción (ej: "transferencia")
+  // - prioridad: BAJA, NORMAL o ALTA
+  // - timeout: Tiempo máximo de espera
+  //
+  // Retorna: ID del lock (para liberarlo después)
+  // Lanza excepción si no se concede en el timeout
+  // ========================================
   async solicitarLock(
     recursos: RecursoId[],
     operacion: string,
@@ -147,6 +202,12 @@ export class WorkerClient {
     const requestId = uuidv4();
 
     return new Promise((resolve, reject) => {
+      // ========================================
+      // 🎓 CREACIÓN DE SOLICITUD DE LOCK
+      // ========================================
+      // Se envía al coordinador con toda la información
+      // necesaria para decidir si conceder o encolar
+      // ========================================
       const request: LockRequest = {
         tipo: TipoMensaje.LOCK_REQUEST,
         timestamp: Date.now(),
@@ -158,28 +219,45 @@ export class WorkerClient {
         operacion,
       };
 
+      // ========================================
+      // 🎓 TIMEOUT (Prevención de Espera Infinita)
+      // ========================================
+      // Si el coordinador no responde en el tiempo límite,
+      // se rechaza la solicitud automáticamente.
+      // Esto previene bloqueos indefinidos.
+      // ========================================
       const timeoutId = setTimeout(() => {
         this.locksPendientes.delete(requestId);
         reject(new Error(`Timeout esperando lock: ${operacion}`));
       }, timeout);
 
+      // Registrar solicitud pendiente
       this.locksPendientes.set(requestId, {
         requestId,
         resolve: (granted) => {
           if (granted) {
-            resolve(requestId);
+            resolve(requestId); // ✅ Lock concedido
           } else {
-            reject(new Error(`Lock denegado: ${operacion}`));
+            reject(new Error(`Lock denegado: ${operacion}`)); // ❌ Lock denegado
           }
         },
         reject,
         timeout: timeoutId,
       });
 
+      // Enviar solicitud al coordinador
       this.socket!.emit(TipoMensaje.LOCK_REQUEST, request);
     });
   }
 
+  // ========================================
+  // 🎓 LIBERACIÓN DE LOCK
+  // ========================================
+  // Notifica al coordinador que este worker ha
+  // terminado de usar los recursos y libera el lock.
+  // El coordinador puede entonces conceder el lock
+  // a otro worker que esté esperando en la cola.
+  // ========================================
   async liberarLock(requestId: string, recursos: RecursoId[]): Promise<void> {
     if (!this.socket || !this.conectado) {
       this.liberarLockLocal(requestId);

@@ -13,6 +13,31 @@ enum EstadoCuenta {
     CERRADA
 }
 
+enum TipoCuenta {
+    CHEQUES
+    DEBITO
+    CREDITO
+}
+
+enum TipoTarjeta {
+    DEBITO
+    CREDITO
+}
+
+enum EstadoTarjeta {
+    ACTIVA
+    BLOQUEADA
+    CANCELADA
+}
+
+// ========================================
+// 🎓 MODELO: Usuario
+// ========================================
+// Representa un usuario del sistema bancario.
+// RELACIÓN con cuentas: MUCHOS-A-MUCHOS
+// Un usuario puede tener varias cuentas Y
+// una cuenta puede pertenecer a varios usuarios (cuenta conjunta)
+// ========================================
 model Usuario {
     id           String   @id @default(uuid())
     nombre       String
@@ -21,7 +46,13 @@ model Usuario {
     createdAt    DateTime @default(now())
     updatedAt    DateTime @updatedAt
 
-    cuentas  CuentaBancaria[]
+    // 🎓 RELACIÓN MUCHOS-A-MUCHOS: Usuario ↔ Cuenta
+    usuarioCuentas UsuarioCuenta[]
+
+    // 🎓 RELACIÓN UNO-A-MUCHOS: Usuario → Tarjetas
+    // Cada tarjeta pertenece a UN SOLO usuario (individual)
+    tarjetas Tarjeta[]
+
     sesiones Sesion[]
 
     @@map("usuarios")
@@ -41,19 +72,107 @@ model Sesion {
     @@map("sesiones")
 }
 
+// ========================================
+// 🎓 MODELO: CuentaBancaria (Recurso Compartido)
+// ========================================
+// Una cuenta puede ser compartida entre múltiples usuarios.
+// Ejemplo: Cuenta conjunta entre esposos, socios, etc.
+// 
+// CONCEPTO DE SISTEMAS DISTRIBUIDOS:
+// - Recurso compartido que requiere LOCKS para acceso concurrente
+// - Múltiples usuarios (workers) pueden operar sobre la misma cuenta
+// - Necesita sincronización para evitar race conditions
+// ========================================
 model CuentaBancaria {
-    id            String       @id @default(uuid())
-    numeroCuenta  String       @unique
-    titularCuenta String
-    saldo         Float        @default(0)
-    usuarioId     String
-    estado        EstadoCuenta @default(ACTIVA)
-    createdAt     DateTime     @default(now())
-    updatedAt     DateTime     @updatedAt
+    id           String       @id @default(uuid())
+    numeroCuenta String       @unique
+    nombre       String // Nombre de la cuenta (ej: "Cuenta Conjunta Familia")
+    tipoCuenta   TipoCuenta   @default(CHEQUES)
+    saldo        Float        @default(0)
+    limiteDiario Float? // Límite de retiro/transferencia diaria
+    estado       EstadoCuenta @default(ACTIVA)
+    createdAt    DateTime     @default(now())
+    updatedAt    DateTime     @updatedAt
 
-    usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+    // 🎓 RELACIÓN MUCHOS-A-MUCHOS: Cuenta ↔ Usuario
+    usuarioCuentas UsuarioCuenta[]
 
-    @@index([usuarioId])
+    // Tarjetas asociadas a esta cuenta
+    tarjetas Tarjeta[]
+
     @@index([numeroCuenta])
     @@map("cuentas_bancarias")
+}
+
+// ========================================
+// 🎓 MODELO: UsuarioCuenta (Tabla de Unión)
+// ========================================
+// Tabla intermedia para la relación MUCHOS-A-MUCHOS
+// entre Usuarios y Cuentas.
+// 
+// Permite:
+// - Un usuario tenga múltiples cuentas
+// - Una cuenta tenga múltiples usuarios (cuenta conjunta)
+// 
+// Campo 'rol' permite definir permisos:
+// - TITULAR: Puede hacer cualquier operación
+// - AUTORIZADO: Puede hacer retiros/depósitos pero no cerrar cuenta
+// - CONSULTA: Solo puede ver el saldo
+// ========================================
+model UsuarioCuenta {
+    id        String   @id @default(uuid())
+    usuarioId String
+    cuentaId  String
+    rol       String   @default("TITULAR") // TITULAR, AUTORIZADO, CONSULTA
+    createdAt DateTime @default(now())
+
+    usuario Usuario        @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+    cuenta  CuentaBancaria @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+
+    // 🎓 RESTRICCIÓN: Un usuario no puede estar asociado
+    // a la misma cuenta dos veces
+    @@unique([usuarioId, cuentaId])
+    @@index([usuarioId])
+    @@index([cuentaId])
+    @@map("usuarios_cuentas")
+}
+
+// ========================================
+// 🎓 MODELO: Tarjeta (Recurso Individual)
+// ========================================
+// Las tarjetas son INDIVIDUALES - pertenecen a un solo usuario.
+// Aunque la cuenta sea compartida, cada usuario tiene su propia tarjeta.
+// 
+// CONCEPTO DE SISTEMAS DISTRIBUIDOS:
+// - Recurso NO compartido (individual por usuario)
+// - Requiere lock solo para el usuario que la posee
+// - Bloqueo/cancelación no afecta tarjetas de otros usuarios
+// ========================================
+model Tarjeta {
+    id              String   @id @default(uuid())
+    numeroTarjeta   String   @unique
+    cvv             String // En producción: encriptar
+    fechaExpiracion DateTime
+
+    // 🎓 RELACIÓN: Tarjeta → Usuario (UNO-A-UNO estricto)
+    // Una tarjeta pertenece a UN SOLO usuario
+    usuarioId String
+
+    // 🎓 RELACIÓN: Tarjeta → Cuenta (MUCHOS-A-UNO)
+    // Múltiples tarjetas pueden estar asociadas a la misma cuenta
+    cuentaId String
+
+    tipoTarjeta  TipoTarjeta
+    estado       EstadoTarjeta @default(ACTIVA)
+    limiteDiario Float?
+    createdAt    DateTime      @default(now())
+    updatedAt    DateTime      @updatedAt
+
+    usuario Usuario        @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+    cuenta  CuentaBancaria @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+
+    @@index([usuarioId])
+    @@index([cuentaId])
+    @@index([numeroTarjeta])
+    @@map("tarjetas")
 }

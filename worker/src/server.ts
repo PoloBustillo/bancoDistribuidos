@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { authService } from "./auth/authService";
 import { WorkerClient } from "./services/workerClient";
 import { BancoService } from "./services/bancoService";
+import { CuentasCompartidasService } from "./services/cuentasCompartidasService";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 
@@ -18,8 +19,9 @@ let ACTUAL_PORT = PORT;
 let WORKER_ID = "";
 let workerClient: WorkerClient;
 
-// Inicializar servicio bancario (se pasará workerClient después)
+// Inicializar servicios
 const bancoService = new BancoService(null as any);
+const cuentasCompartidasService = new CuentasCompartidasService();
 
 app.use(express.json());
 
@@ -134,16 +136,45 @@ app.get(
       const usuario = await prisma.usuario.findUnique({
         where: { id: req.usuario!.id },
         include: {
-          cuentas: {
+          // 🎓 Cargar cuentas compartidas
+          usuarioCuentas: {
+            include: {
+              cuenta: {
+                select: {
+                  id: true,
+                  numeroCuenta: true,
+                  nombre: true,
+                  tipoCuenta: true,
+                  saldo: true,
+                  estado: true,
+                },
+              },
+            },
+          },
+          // 🎓 Cargar tarjetas individuales
+          tarjetas: {
+            where: { estado: "ACTIVA" },
             select: {
               id: true,
-              numeroCuenta: true,
-              saldo: true,
+              numeroTarjeta: true,
+              tipoTarjeta: true,
               estado: true,
+              fechaExpiracion: true,
             },
           },
         },
       });
+
+      // Mapear cuentas compartidas
+      const cuentas = usuario!.usuarioCuentas.map((uc) => ({
+        id: uc.cuenta.id,
+        numeroCuenta: uc.cuenta.numeroCuenta,
+        nombre: uc.cuenta.nombre,
+        tipoCuenta: uc.cuenta.tipoCuenta,
+        saldo: uc.cuenta.saldo,
+        estado: uc.cuenta.estado,
+        rol: uc.rol, // 🎓 Rol del usuario en esta cuenta
+      }));
 
       res.json({
         usuario: {
@@ -151,7 +182,8 @@ app.get(
           nombre: usuario!.nombre,
           email: usuario!.email,
         },
-        cuentas: usuario!.cuentas,
+        cuentas, // 🎓 Cuentas (pueden ser compartidas)
+        tarjetas: usuario!.tarjetas, // 🎓 Tarjetas individuales
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -252,6 +284,198 @@ app.get(
       res.json(resultado);
     } catch (error: any) {
       console.error("Error al consultar saldo:", error.message);
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+// ========================================
+// 🎓 RUTAS: CUENTAS COMPARTIDAS Y TARJETAS
+// ========================================
+
+// Schemas de validación para cuentas compartidas
+const agregarUsuarioSchema = z.object({
+  emailUsuario: z.string().email(),
+  rol: z.enum(["TITULAR", "AUTORIZADO", "CONSULTA"]).optional(),
+});
+
+const removerUsuarioSchema = z.object({
+  usuarioId: z.string().uuid(),
+});
+
+const crearTarjetaSchema = z.object({
+  tipoTarjeta: z.enum(["DEBITO", "CREDITO"]).optional(),
+});
+
+const cambiarEstadoTarjetaSchema = z.object({
+  estado: z.enum(["ACTIVA", "BLOQUEADA", "CANCELADA"]),
+});
+
+// POST /api/cuentas-compartidas/:cuentaId/agregar-usuario
+app.post(
+  "/api/cuentas-compartidas/:cuentaId/agregar-usuario",
+  verificarAuth,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { cuentaId } = req.params;
+      const data = agregarUsuarioSchema.parse(req.body);
+
+      const resultado = await cuentasCompartidasService.agregarUsuarioACuenta(
+        cuentaId,
+        data.emailUsuario,
+        req.usuario!.id,
+        data.rol
+      );
+
+      console.log(`✅ Usuario agregado a cuenta compartida: ${cuentaId}`);
+      res.status(200).json(resultado);
+    } catch (error: any) {
+      console.error("Error al agregar usuario:", error.message);
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+// GET /api/cuentas-compartidas/:cuentaId/usuarios
+app.get(
+  "/api/cuentas-compartidas/:cuentaId/usuarios",
+  verificarAuth,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { cuentaId } = req.params;
+      const usuarios = await cuentasCompartidasService.listarUsuariosDeCuenta(
+        cuentaId,
+        req.usuario!.id
+      );
+
+      res.status(200).json(usuarios);
+    } catch (error: any) {
+      console.error("Error al listar usuarios:", error.message);
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+// DELETE /api/cuentas-compartidas/:cuentaId/remover-usuario
+app.delete(
+  "/api/cuentas-compartidas/:cuentaId/remover-usuario",
+  verificarAuth,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { cuentaId } = req.params;
+      const data = removerUsuarioSchema.parse(req.body);
+
+      const resultado = await cuentasCompartidasService.removerUsuarioDeCuenta(
+        cuentaId,
+        data.usuarioId,
+        req.usuario!.id
+      );
+
+      console.log(`✅ Usuario removido de cuenta compartida: ${cuentaId}`);
+      res.status(200).json(resultado);
+    } catch (error: any) {
+      console.error("Error al remover usuario:", error.message);
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+// POST /api/cuentas-compartidas/:cuentaId/tarjetas
+app.post(
+  "/api/cuentas-compartidas/:cuentaId/tarjetas",
+  verificarAuth,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { cuentaId } = req.params;
+      const data = crearTarjetaSchema.parse(req.body);
+
+      const tarjeta = await cuentasCompartidasService.crearTarjeta(
+        req.usuario!.id,
+        cuentaId,
+        data.tipoTarjeta
+      );
+
+      console.log(`✅ Tarjeta individual creada para cuenta: ${cuentaId}`);
+      res.status(201).json(tarjeta);
+    } catch (error: any) {
+      console.error("Error al crear tarjeta:", error.message);
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+// GET /api/cuentas-compartidas/:cuentaId/tarjetas
+app.get(
+  "/api/cuentas-compartidas/:cuentaId/tarjetas",
+  verificarAuth,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { cuentaId } = req.params;
+      const tarjetas = await cuentasCompartidasService.listarTarjetasDeCuenta(
+        cuentaId,
+        req.usuario!.id
+      );
+
+      res.status(200).json(tarjetas);
+    } catch (error: any) {
+      console.error("Error al listar tarjetas:", error.message);
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+// PATCH /api/tarjetas/:tarjetaId/estado
+app.patch(
+  "/api/tarjetas/:tarjetaId/estado",
+  verificarAuth,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { tarjetaId } = req.params;
+      const data = cambiarEstadoTarjetaSchema.parse(req.body);
+
+      const resultado = await cuentasCompartidasService.cambiarEstadoTarjeta(
+        tarjetaId,
+        req.usuario!.id,
+        data.estado
+      );
+
+      console.log(`✅ Estado de tarjeta actualizado: ${tarjetaId}`);
+      res.status(200).json(resultado);
+    } catch (error: any) {
+      console.error("Error al cambiar estado de tarjeta:", error.message);
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+// ============== CUENTAS ADICIONALES ==============
+
+// POST /api/cuentas/crear
+// Crear una cuenta adicional para el usuario autenticado
+app.post(
+  "/api/cuentas/crear",
+  verificarAuth,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const crearCuentaSchema = z.object({
+        tipoCuenta: z.enum(["CHEQUES", "DEBITO", "CREDITO"]),
+        nombre: z.string().optional(),
+      });
+
+      const data = crearCuentaSchema.parse(req.body);
+
+      const resultado = await cuentasCompartidasService.crearCuentaAdicional(
+        req.usuario!.id,
+        data.tipoCuenta,
+        data.nombre
+      );
+
+      console.log(
+        `✅ Cuenta adicional creada para usuario: ${req.usuario!.email}`
+      );
+      res.status(201).json(resultado);
+    } catch (error: any) {
+      console.error("Error al crear cuenta adicional:", error.message);
       res.status(400).json({ error: error.message });
     }
   }

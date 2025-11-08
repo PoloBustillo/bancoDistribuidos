@@ -9,6 +9,12 @@ export class BancoService {
 
   /**
    * Transferencia entre cuentas usando locks distribuidos
+   *
+   * 🎓 CONCEPTOS DE SISTEMAS DISTRIBUIDOS APLICADOS:
+   * - Locks distribuidos (exclusión mutua)
+   * - Prevención de deadlocks (ordenamiento de recursos)
+   * - Sección crítica (zona protegida por locks)
+   * - Atomicidad (transacción todo-o-nada)
    */
   async transferir(
     cuentaOrigenId: string,
@@ -20,33 +26,80 @@ export class BancoService {
       throw new Error("El monto debe ser mayor a 0");
     }
 
-    // Ordenar IDs para evitar deadlocks (siempre bloquear en el mismo orden)
+    // ========================================
+    // 🎓 PREVENCIÓN DE DEADLOCKS
+    // ========================================
+    // Si Worker 1 transfiere A→B y Worker 2 transfiere B→A simultáneamente,
+    // sin ordenamiento habría deadlock:
+    //   Worker 1: lock(A) → espera lock(B)
+    //   Worker 2: lock(B) → espera lock(A)  ← DEADLOCK
+    //
+    // SOLUCIÓN: Ordenar IDs alfabéticamente garantiza que ambos workers
+    // soliciten locks en el MISMO orden: lock(A) → lock(B)
+    // ========================================
     const cuentaIds = [cuentaOrigenId, cuentaDestinoId].sort();
     let lockId: string | null = null;
 
     try {
-      // 1. Solicitar lock al coordinador
+      // ========================================
+      // 🎓 SOLICITUD DE LOCKS DISTRIBUIDOS
+      // ========================================
+      // El worker solicita al COORDINADOR CENTRAL que le otorgue
+      // acceso exclusivo a estos recursos (cuentas bancarias).
+      //
+      // - Si está disponible → LOCK_GRANTED (exclusión mutua garantizada)
+      // - Si está ocupado → LOCK_DENIED, entra en COLA DE PRIORIDAD
+      // ========================================
       console.log(`🔒 Solicitando lock para cuentas: ${cuentaIds.join(", ")}`);
       lockId = await this.workerClient.lockCuentas(
         cuentaIds,
         `transferencia de $${monto}`,
-        Prioridad.NORMAL
+        Prioridad.NORMAL // 🎓 COLA DE PRIORIDAD: orden de procesamiento
       );
       console.log(`✅ Lock obtenido: ${lockId}`);
 
-      // 2. Verificar cuentas existen
-      const [origen, destino] = await Promise.all([
+      // ========================================
+      // 🎓 INICIO DE SECCIÓN CRÍTICA
+      // ========================================
+      // A partir de aquí, este worker tiene acceso EXCLUSIVO a estas cuentas.
+      // Ningún otro worker puede modificarlas hasta que se libere el lock.
+      // Esto previene RACE CONDITIONS y garantiza CONSISTENCIA.
+      // ========================================
+
+      // 2. Verificar cuentas existen y cargar permisos del usuario
+      const [origen, destino, permisoOrigen] = await Promise.all([
         prisma.cuentaBancaria.findUnique({ where: { id: cuentaOrigenId } }),
         prisma.cuentaBancaria.findUnique({ where: { id: cuentaDestinoId } }),
+        // 🎓 Verificar si el usuario tiene acceso a la cuenta origen
+        prisma.usuarioCuenta.findUnique({
+          where: {
+            usuarioId_cuentaId: {
+              usuarioId,
+              cuentaId: cuentaOrigenId,
+            },
+          },
+        }),
       ]);
 
       if (!origen || !destino) {
         throw new Error("Una o ambas cuentas no existen");
       }
 
-      // 3. Verificar que el usuario es dueño de la cuenta origen
-      if (origen.usuarioId !== usuarioId) {
-        throw new Error("No tienes permiso para realizar esta transferencia");
+      // ========================================
+      // 🎓 VERIFICACIÓN DE PERMISOS (Cuentas Compartidas)
+      // ========================================
+      // Como las cuentas pueden ser compartidas entre múltiples usuarios,
+      // verificamos que el usuario tenga permiso para operar en la cuenta origen.
+      // Solo usuarios con rol TITULAR o AUTORIZADO pueden transferir.
+      // ========================================
+      if (!permisoOrigen) {
+        throw new Error("No tienes acceso a la cuenta origen");
+      }
+
+      if (permisoOrigen.rol === "CONSULTA") {
+        throw new Error(
+          "Tu rol solo permite consultar. No puedes realizar transferencias"
+        );
       }
 
       // 4. Verificar saldo suficiente
@@ -59,7 +112,14 @@ export class BancoService {
         throw new Error("Una o ambas cuentas no están activas");
       }
 
-      // 6. Realizar transferencia en transacción
+      // ========================================
+      // 🎓 OPERACIÓN ATÓMICA (ACID)
+      // ========================================
+      // La transacción garantiza ATOMICIDAD:
+      // - TODO se ejecuta, o NADA se ejecuta
+      // - Si falla acreditar → se revierte debitar
+      // - Mantiene CONSISTENCIA de datos
+      // ========================================
       const resultado = await prisma.$transaction(async (tx) => {
         // Debitar de origen
         const nuevaOrigen = await tx.cuentaBancaria.update({
@@ -91,13 +151,28 @@ export class BancoService {
 
       console.log(`✅ Transferencia completada: $${monto}`);
 
+      // ========================================
+      // 🎓 FIN DE SECCIÓN CRÍTICA
+      // ========================================
+      // La operación se completó exitosamente.
+      // El lock se liberará en el bloque finally.
+      // ========================================
+
       return {
         mensaje: "Transferencia realizada exitosamente",
         monto,
         ...resultado,
       };
     } finally {
-      // 7. Liberar lock SIEMPRE
+      // ========================================
+      // 🎓 LIBERACIÓN DE LOCKS (SIEMPRE)
+      // ========================================
+      // El bloque finally garantiza que los locks se liberen
+      // INCLUSO SI HAY ERROR, evitando:
+      // - Deadlocks permanentes
+      // - Recursos bloqueados indefinidamente
+      // - Inanición de otros workers
+      // ========================================
       if (lockId) {
         console.log(`🔓 Liberando lock: ${lockId}`);
         await this.workerClient.unlockCuentas(lockId, cuentaIds);
@@ -107,6 +182,11 @@ export class BancoService {
 
   /**
    * Depósito en cuenta usando locks distribuidos
+   *
+   * 🎓 CONCEPTOS APLICADOS:
+   * - Lock de recurso único (exclusión mutua)
+   * - Sección crítica para modificación de saldo
+   * - Operación atómica (ACID)
    */
   async depositar(cuentaId: string, monto: number, usuarioId: string) {
     if (monto <= 0) {
@@ -116,7 +196,12 @@ export class BancoService {
     let lockId: string | null = null;
 
     try {
-      // 1. Solicitar lock
+      // ========================================
+      // 🎓 SOLICITUD DE LOCK (Recurso único)
+      // ========================================
+      // A diferencia de transferencia (2 recursos),
+      // el depósito solo necesita bloquear 1 cuenta
+      // ========================================
       console.log(`🔒 Solicitando lock para cuenta: ${cuentaId}`);
       lockId = await this.workerClient.lockCuenta(
         cuentaId,
@@ -125,27 +210,49 @@ export class BancoService {
       );
       console.log(`✅ Lock obtenido: ${lockId}`);
 
-      // 2. Verificar cuenta
-      const cuenta = await prisma.cuentaBancaria.findUnique({
-        where: { id: cuentaId },
-      });
+      // 2. Verificar cuenta y permisos del usuario
+      const [cuenta, permiso] = await Promise.all([
+        prisma.cuentaBancaria.findUnique({ where: { id: cuentaId } }),
+        // 🎓 Verificar permisos en cuenta compartida
+        prisma.usuarioCuenta.findUnique({
+          where: {
+            usuarioId_cuentaId: {
+              usuarioId,
+              cuentaId,
+            },
+          },
+        }),
+      ]);
 
       if (!cuenta) {
         throw new Error("Cuenta no encontrada");
       }
 
-      if (cuenta.usuarioId !== usuarioId) {
-        throw new Error("No tienes permiso para depositar en esta cuenta");
+      // 🎓 Verificar que el usuario tiene acceso a la cuenta
+      if (!permiso) {
+        throw new Error("No tienes acceso a esta cuenta");
+      }
+
+      if (permiso.rol === "CONSULTA") {
+        throw new Error("Tu rol solo permite consultar. No puedes depositar");
       }
 
       if (cuenta.estado !== "ACTIVA") {
         throw new Error("La cuenta no está activa");
       }
 
-      // 3. Realizar depósito
+      // ========================================
+      // 🎓 SECCIÓN CRÍTICA
+      // ========================================
+      // El lock garantiza que solo este worker puede
+      // modificar el saldo de esta cuenta en este momento.
+      // Previene race conditions como:
+      // - Dos depósitos simultáneos perdiendo un valor
+      // - Lectura de saldo inconsistente
+      // ========================================
       const cuentaActualizada = await prisma.cuentaBancaria.update({
         where: { id: cuentaId },
-        data: { saldo: { increment: monto } },
+        data: { saldo: { increment: monto } }, // Operación atómica
       });
 
       console.log(`✅ Depósito completado: $${monto}`);
@@ -161,6 +268,7 @@ export class BancoService {
         },
       };
     } finally {
+      // 🎓 LIBERACIÓN (SIEMPRE)
       if (lockId) {
         console.log(`🔓 Liberando lock: ${lockId}`);
         await this.workerClient.unlockCuentas(lockId, [cuentaId]);
@@ -170,6 +278,11 @@ export class BancoService {
 
   /**
    * Retiro de cuenta usando locks distribuidos
+   *
+   * 🎓 CONCEPTOS APLICADOS:
+   * - Lock de recurso único (exclusión mutua)
+   * - Sección crítica con validación de saldo
+   * - Prevención de saldo negativo
    */
   async retirar(cuentaId: string, monto: number, usuarioId: string) {
     if (monto <= 0) {
@@ -179,7 +292,9 @@ export class BancoService {
     let lockId: string | null = null;
 
     try {
-      // 1. Solicitar lock
+      // ========================================
+      // 🎓 SOLICITUD DE LOCK (Exclusión mutua)
+      // ========================================
       console.log(`🔒 Solicitando lock para cuenta: ${cuentaId}`);
       lockId = await this.workerClient.lockCuenta(
         cuentaId,
@@ -188,31 +303,53 @@ export class BancoService {
       );
       console.log(`✅ Lock obtenido: ${lockId}`);
 
-      // 2. Verificar cuenta
-      const cuenta = await prisma.cuentaBancaria.findUnique({
-        where: { id: cuentaId },
-      });
+      // 2. Verificar cuenta y permisos
+      const [cuenta, permiso] = await Promise.all([
+        prisma.cuentaBancaria.findUnique({ where: { id: cuentaId } }),
+        // 🎓 Verificar permisos en cuenta compartida
+        prisma.usuarioCuenta.findUnique({
+          where: {
+            usuarioId_cuentaId: {
+              usuarioId,
+              cuentaId,
+            },
+          },
+        }),
+      ]);
 
       if (!cuenta) {
         throw new Error("Cuenta no encontrada");
       }
 
-      if (cuenta.usuarioId !== usuarioId) {
-        throw new Error("No tienes permiso para retirar de esta cuenta");
+      // 🎓 Verificar acceso y permisos
+      if (!permiso) {
+        throw new Error("No tienes acceso a esta cuenta");
+      }
+
+      if (permiso.rol === "CONSULTA") {
+        throw new Error("Tu rol solo permite consultar. No puedes retirar");
       }
 
       if (cuenta.estado !== "ACTIVA") {
         throw new Error("La cuenta no está activa");
       }
 
+      // ========================================
+      // 🎓 VALIDACIÓN EN SECCIÓN CRÍTICA
+      // ========================================
+      // El lock asegura que el saldo no cambie entre
+      // la lectura (línea anterior) y el retiro (línea siguiente).
+      // Sin lock, otro worker podría retirar dinero entre
+      // estas dos operaciones, causando saldo negativo.
+      // ========================================
       if (cuenta.saldo < monto) {
         throw new Error(`Saldo insuficiente. Disponible: $${cuenta.saldo}`);
       }
 
-      // 3. Realizar retiro
+      // 🎓 OPERACIÓN ATÓMICA
       const cuentaActualizada = await prisma.cuentaBancaria.update({
         where: { id: cuentaId },
-        data: { saldo: { decrement: monto } },
+        data: { saldo: { decrement: monto } }, // Decremento atómico
       });
 
       console.log(`✅ Retiro completado: $${monto}`);
@@ -228,6 +365,7 @@ export class BancoService {
         },
       };
     } finally {
+      // 🎓 LIBERACIÓN (SIEMPRE)
       if (lockId) {
         console.log(`🔓 Liberando lock: ${lockId}`);
         await this.workerClient.unlockCuentas(lockId, [cuentaId]);
@@ -236,27 +374,46 @@ export class BancoService {
   }
 
   /**
-   * Consultar saldo (no requiere lock)
+   * Consultar saldo (NO requiere lock)
+   *
+   * 🎓 OPERACIÓN DE SOLO LECTURA
+   * Las consultas de saldo NO necesitan lock porque:
+   * - Solo leen datos, no modifican
+   * - PostgreSQL garantiza lecturas consistentes
+   * - Mejora el rendimiento (no bloquea otros workers)
    */
   async consultarSaldo(cuentaId: string, usuarioId: string) {
-    const cuenta = await prisma.cuentaBancaria.findUnique({
-      where: { id: cuentaId },
-    });
+    // Verificar cuenta y permisos
+    const [cuenta, permiso] = await Promise.all([
+      prisma.cuentaBancaria.findUnique({ where: { id: cuentaId } }),
+      // 🎓 Verificar acceso a cuenta (puede ser compartida)
+      prisma.usuarioCuenta.findUnique({
+        where: {
+          usuarioId_cuentaId: {
+            usuarioId,
+            cuentaId,
+          },
+        },
+      }),
+    ]);
 
     if (!cuenta) {
       throw new Error("Cuenta no encontrada");
     }
 
-    if (cuenta.usuarioId !== usuarioId) {
-      throw new Error("No tienes permiso para consultar esta cuenta");
+    // 🎓 Verificar acceso - incluso rol CONSULTA puede ver el saldo
+    if (!permiso) {
+      throw new Error("No tienes acceso a esta cuenta");
     }
 
     return {
       id: cuenta.id,
       numeroCuenta: cuenta.numeroCuenta,
-      titular: cuenta.titularCuenta,
+      nombre: cuenta.nombre,
+      tipoCuenta: cuenta.tipoCuenta,
       saldo: cuenta.saldo,
       estado: cuenta.estado,
+      rol: permiso.rol, // 🎓 Muestra el rol del usuario en esta cuenta
     };
   }
 }
