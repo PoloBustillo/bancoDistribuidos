@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useApp } from '@/context/AppContext';
-import { SignalIcon, SignalSlashIcon } from '@heroicons/react/24/outline';
+import { useApp } from "@/context/AppContext";
+import { SignalIcon, SignalSlashIcon } from "@heroicons/react/24/outline";
 
 export default function ConnectionStatus() {
   const { socketConnected, socketReconnecting, socketError } = useApp();

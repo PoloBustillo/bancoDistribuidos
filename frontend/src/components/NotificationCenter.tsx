@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useApp } from '@/context/AppContext';
-import { useEffect, useState } from 'react';
-import { 
-  CheckCircleIcon, 
-  InformationCircleIcon, 
-  ExclamationTriangleIcon, 
+import { useApp } from "@/context/AppContext";
+import { useEffect, useState } from "react";
+import {
+  CheckCircleIcon,
+  InformationCircleIcon,
+  ExclamationTriangleIcon,
   XCircleIcon,
-  XMarkIcon 
-} from '@heroicons/react/24/outline';
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 
 export default function NotificationCenter() {
   const { notifications, clearNotifications } = useApp();
@@ -33,13 +33,13 @@ export default function NotificationCenter() {
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'success':
+      case "success":
         return <CheckCircleIcon className="h-6 w-6 text-green-500" />;
-      case 'info':
+      case "info":
         return <InformationCircleIcon className="h-6 w-6 text-blue-500" />;
-      case 'warning':
+      case "warning":
         return <ExclamationTriangleIcon className="h-6 w-6 text-yellow-500" />;
-      case 'error':
+      case "error":
         return <XCircleIcon className="h-6 w-6 text-red-500" />;
       default:
         return <InformationCircleIcon className="h-6 w-6 text-gray-500" />;
@@ -48,16 +48,16 @@ export default function NotificationCenter() {
 
   const getBorderColor = (type: string) => {
     switch (type) {
-      case 'success':
-        return 'border-green-500';
-      case 'info':
-        return 'border-blue-500';
-      case 'warning':
-        return 'border-yellow-500';
-      case 'error':
-        return 'border-red-500';
+      case "success":
+        return "border-green-500";
+      case "info":
+        return "border-blue-500";
+      case "warning":
+        return "border-yellow-500";
+      case "error":
+        return "border-red-500";
       default:
-        return 'border-gray-500';
+        return "border-gray-500";
     }
   };
 
@@ -68,7 +68,11 @@ export default function NotificationCenter() {
           key={notification.id}
           className={`
             transform transition-all duration-300 ease-in-out
-            ${visible.includes(notification.id) ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
+            ${
+              visible.includes(notification.id)
+                ? "translate-x-0 opacity-100"
+                : "translate-x-full opacity-0"
+            }
             bg-white dark:bg-gray-800 rounded-lg shadow-lg border-l-4 
             ${getBorderColor(notification.type)}
             p-4 flex items-start gap-3
@@ -77,7 +81,7 @@ export default function NotificationCenter() {
           <div className="flex-shrink-0 mt-0.5">
             {getIcon(notification.type)}
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900 dark:text-white">
               {notification.title}

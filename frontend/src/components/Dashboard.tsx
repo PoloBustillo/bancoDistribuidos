@@ -1,35 +1,40 @@
-'use client';
+"use client";
 
-import { useApp } from '@/context/AppContext';
-import AccountCard from './AccountCard';
-import BankingOperations from './BankingOperations';
-import ConnectionStatus from './ConnectionStatus';
-import { useState } from 'react';
-import { apiClient } from '@/lib/api';
+import { useApp } from "@/context/AppContext";
+import AccountCard from "./AccountCard";
+import BankingOperations from "./BankingOperations";
+import ConnectionStatus from "./ConnectionStatus";
+import { useState } from "react";
+import { apiClient } from "@/lib/api";
 
 export default function Dashboard() {
   const { user, accounts, cards, logout, refreshUserData } = useApp();
   const [creatingAccount, setCreatingAccount] = useState(false);
-  const [accountType, setAccountType] = useState<'CHEQUES' | 'DEBITO' | 'CREDITO'>('CHEQUES');
-  const [accountName, setAccountName] = useState('');
+  const [accountType, setAccountType] = useState<
+    "CHEQUES" | "DEBITO" | "CREDITO"
+  >("CHEQUES");
+  const [accountName, setAccountName] = useState("");
 
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreatingAccount(true);
     try {
       await apiClient.createAdditionalAccount(accountType, accountName);
-      
+
       // Emitir evento para sincronizar con otras pestañas
-      localStorage.setItem('banking-operation', JSON.stringify({
-        type: 'create-account',
-        timestamp: Date.now()
-      }));
-      setTimeout(() => localStorage.removeItem('banking-operation'), 100);
-      
+      localStorage.setItem(
+        "banking-operation",
+        JSON.stringify({
+          type: "create-account",
+          timestamp: Date.now(),
+        })
+      );
+      setTimeout(() => localStorage.removeItem("banking-operation"), 100);
+
       await refreshUserData();
-      setAccountName('');
+      setAccountName("");
     } catch (error) {
-      console.error('Error creating account:', error);
+      console.error("Error creating account:", error);
     } finally {
       setCreatingAccount(false);
     }
@@ -43,10 +48,13 @@ export default function Dashboard() {
           <div className="flex-1">
             <div className="flex items-center gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-white">{user?.nombre}</h2>
+                <h2 className="text-2xl font-bold text-white">
+                  {user?.nombre}
+                </h2>
                 <p className="text-gray-400">{user?.email}</p>
                 <p className="text-sm text-gray-500 mt-2">
-                  {accounts.length} cuenta{accounts.length !== 1 ? 's' : ''} • {cards.length} tarjeta{cards.length !== 1 ? 's' : ''}
+                  {accounts.length} cuenta{accounts.length !== 1 ? "s" : ""} •{" "}
+                  {cards.length} tarjeta{cards.length !== 1 ? "s" : ""}
                 </p>
               </div>
               <div className="ml-4">
@@ -68,7 +76,7 @@ export default function Dashboard() {
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-white">Tus Cuentas</h3>
         </div>
-        
+
         {accounts.length === 0 ? (
           <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center text-gray-400">
             No se encontraron cuentas
@@ -84,7 +92,9 @@ export default function Dashboard() {
 
       {/* Create Additional Account */}
       <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-        <h3 className="text-lg font-bold text-white mb-4">➕ Crear Cuenta Adicional</h3>
+        <h3 className="text-lg font-bold text-white mb-4">
+          ➕ Crear Cuenta Adicional
+        </h3>
         <form onSubmit={handleCreateAccount} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -93,7 +103,11 @@ export default function Dashboard() {
               </label>
               <select
                 value={accountType}
-                onChange={(e) => setAccountType(e.target.value as 'CHEQUES' | 'DEBITO' | 'CREDITO')}
+                onChange={(e) =>
+                  setAccountType(
+                    e.target.value as "CHEQUES" | "DEBITO" | "CREDITO"
+                  )
+                }
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
               >
                 <option value="CHEQUES">Cheques</option>
@@ -119,7 +133,7 @@ export default function Dashboard() {
             disabled={creatingAccount}
             className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
           >
-            {creatingAccount ? 'Creando...' : 'Crear Cuenta'}
+            {creatingAccount ? "Creando..." : "Crear Cuenta"}
           </button>
         </form>
       </div>

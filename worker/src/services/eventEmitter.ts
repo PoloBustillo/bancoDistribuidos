@@ -16,21 +16,21 @@ export enum EventType {
   // Eventos de cuentas
   CUENTA_ACTUALIZADA = "cuenta:actualizada",
   CUENTA_CREADA = "cuenta:creada",
-  
+
   // Eventos de transacciones
   TRANSFERENCIA_RECIBIDA = "transferencia:recibida",
   TRANSFERENCIA_ENVIADA = "transferencia:enviada",
   DEPOSITO_REALIZADO = "deposito:realizado",
   RETIRO_REALIZADO = "retiro:realizado",
-  
+
   // Eventos de usuarios en cuentas compartidas
   USUARIO_AGREGADO = "usuario:agregado",
   USUARIO_REMOVIDO = "usuario:removido",
-  
+
   // Eventos de tarjetas
   TARJETA_CREADA = "tarjeta:creada",
   TARJETA_ESTADO_CAMBIADO = "tarjeta:estado_cambiado",
-  
+
   // Eventos de sesión
   SESION_EXPIRADA = "sesion:expirada",
 }
@@ -130,7 +130,7 @@ class BankingEventEmitter extends EventEmitter {
     };
 
     this.emit(EventType.CUENTA_ACTUALIZADA, event);
-    
+
     // También emitir evento específico por cuenta para filtrado
     this.emit(`cuenta:${cuentaId}`, event);
   }
@@ -257,11 +257,7 @@ class BankingEventEmitter extends EventEmitter {
   // 🎓 EMITIR EVENTOS DE TARJETAS
   // ========================================
 
-  emitTarjetaCreada(
-    tarjetaId: string,
-    usuarioId: string,
-    cuentaId: string
-  ) {
+  emitTarjetaCreada(tarjetaId: string, usuarioId: string, cuentaId: string) {
     const event: TarjetaEvent = {
       type: EventType.TARJETA_CREADA,
       timestamp: new Date(),

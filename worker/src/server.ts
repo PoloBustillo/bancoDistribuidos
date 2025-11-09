@@ -113,9 +113,7 @@ io.on("connection", async (socket) => {
     // Evento de desuscripción
     socket.on("unsubscribe-cuenta", (cuentaId: string) => {
       socket.leave(`cuenta:${cuentaId}`);
-      console.log(
-        `📤 Usuario ${usuarioId} desuscrito de cuenta ${cuentaId}`
-      );
+      console.log(`📤 Usuario ${usuarioId} desuscrito de cuenta ${cuentaId}`);
     });
 
     socket.on("disconnect", () => {

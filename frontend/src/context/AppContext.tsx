@@ -1,9 +1,16 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Worker, User, Account, Card } from '@/types';
-import { apiClient } from '@/lib/api';
-import { io, Socket } from 'socket.io-client';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
+import { Worker, User, Account, Card } from "@/types";
+import { apiClient } from "@/lib/api";
+import { io, Socket } from "socket.io-client";
 
 interface BankingEventData {
   cuentaId?: string;
@@ -16,7 +23,7 @@ interface BankingEventData {
   usuarioEmail?: string;
   rol?: string;
   tarjetaId?: string;
-  estado?: 'ACTIVA' | 'BLOQUEADA' | 'CANCELADA';
+  estado?: "ACTIVA" | "BLOQUEADA" | "CANCELADA";
 }
 
 interface BankingEvent {
@@ -54,7 +61,7 @@ interface AppState {
 
 interface Notification {
   id: string;
-  type: 'success' | 'info' | 'warning' | 'error';
+  type: "success" | "info" | "warning" | "error";
   title: string;
   message: string;
   timestamp: Date;
@@ -63,18 +70,30 @@ interface Notification {
 const AppContext = createContext<AppState | undefined>(undefined);
 
 const defaultWorkers: Worker[] = [
-  { id: 'worker1', name: 'Worker 1', url: 'http://localhost:3001', color: 'bg-blue-500' },
-  { id: 'worker2', name: 'Worker 2', url: 'http://localhost:3002', color: 'bg-green-500' },
+  {
+    id: "worker1",
+    name: "Worker 1",
+    url: "http://localhost:3001",
+    color: "bg-blue-500",
+  },
+  {
+    id: "worker2",
+    name: "Worker 2",
+    url: "http://localhost:3002",
+    color: "bg-green-500",
+  },
 ];
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [workers, setWorkers] = useState<Worker[]>(defaultWorkers);
-  const [selectedWorker, setSelectedWorkerState] = useState<Worker>(defaultWorkers[0]);
+  const [selectedWorker, setSelectedWorkerState] = useState<Worker>(
+    defaultWorkers[0]
+  );
   const [user, setUser] = useState<User | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  
+
   // Socket.IO state
   const [connected, setConnected] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
@@ -89,8 +108,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Conectar Socket.IO cuando hay usuario autenticado
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
     if (!user || !token) {
       if (socketRef.current) {
         socketRef.current.disconnect();
@@ -99,7 +119,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    console.log('🔌 Conectando a Socket.IO:', selectedWorker.url);
+    console.log("🔌 Conectando a Socket.IO:", selectedWorker.url);
 
     const socket = io(selectedWorker.url, {
       auth: { token },
@@ -112,51 +132,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     socketRef.current = socket;
 
-    socket.on('connect', () => {
-      console.log('✅ Socket.IO conectado');
+    socket.on("connect", () => {
+      console.log("✅ Socket.IO conectado");
       setConnected(true);
       setReconnecting(false);
       setError(null);
     });
 
-    socket.on('disconnect', (reason) => {
-      console.log('❌ Socket.IO desconectado:', reason);
+    socket.on("disconnect", (reason) => {
+      console.log("❌ Socket.IO desconectado:", reason);
       setConnected(false);
-      
-      if (reason === 'io server disconnect') {
+
+      if (reason === "io server disconnect") {
         socket.connect();
       }
     });
 
-    socket.on('connect_error', (err) => {
-      console.error('❌ Error de conexión Socket.IO:', err.message);
+    socket.on("connect_error", (err) => {
+      console.error("❌ Error de conexión Socket.IO:", err.message);
       setError(err.message);
       setConnected(false);
     });
 
-    socket.on('reconnect', (attemptNumber) => {
+    socket.on("reconnect", (attemptNumber) => {
       console.log(`🔄 Reconectado después de ${attemptNumber} intentos`);
       setReconnecting(false);
       setError(null);
     });
 
-    socket.on('reconnect_attempt', () => {
+    socket.on("reconnect_attempt", () => {
       setReconnecting(true);
     });
 
-    socket.on('reconnect_error', (err) => {
-      console.error('❌ Error al reconectar:', err.message);
+    socket.on("reconnect_error", (err) => {
+      console.error("❌ Error al reconectar:", err.message);
       setError(`Error de reconexión: ${err.message}`);
     });
 
-    socket.on('reconnect_failed', () => {
-      console.error('❌ Falló la reconexión');
-      setError('No se pudo reconectar al servidor');
+    socket.on("reconnect_failed", () => {
+      console.error("❌ Falló la reconexión");
+      setError("No se pudo reconectar al servidor");
       setReconnecting(false);
     });
 
     return () => {
-      console.log('🔌 Desconectando Socket.IO');
+      console.log("🔌 Desconectando Socket.IO");
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -192,30 +212,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setAccounts(data.cuentas || []);
       setCards(data.tarjetas || []);
     } catch (error) {
-      console.error('Error refreshing user data:', error);
+      console.error("Error refreshing user data:", error);
     }
   }, []);
 
   // Función para agregar notificaciones
-  const addNotification = useCallback((
-    type: Notification['type'],
-    title: string,
-    message: string
-  ) => {
-    const notification: Notification = {
-      id: `${Date.now()}-${Math.random()}`,
-      type,
-      title,
-      message,
-      timestamp: new Date(),
-    };
-    setNotifications((prev) => [notification, ...prev].slice(0, 20)); // Máximo 20
+  const addNotification = useCallback(
+    (type: Notification["type"], title: string, message: string) => {
+      const notification: Notification = {
+        id: `${Date.now()}-${Math.random()}`,
+        type,
+        title,
+        message,
+        timestamp: new Date(),
+      };
+      setNotifications((prev) => [notification, ...prev].slice(0, 20)); // Máximo 20
 
-    // Auto-remover después de 5 segundos
-    setTimeout(() => {
-      setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
-    }, 5000);
-  }, []);
+      // Auto-remover después de 5 segundos
+      setTimeout(() => {
+        setNotifications((prev) =>
+          prev.filter((n) => n.id !== notification.id)
+        );
+      }, 5000);
+    },
+    []
+  );
 
   const clearNotifications = useCallback(() => {
     setNotifications([]);
@@ -227,13 +248,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!socket || !connected || !user) return;
 
     const handleBankingEvent = (event: BankingEvent) => {
-      console.log('🔔 Evento bancario recibido:', event);
+      console.log("🔔 Evento bancario recibido:", event);
 
       // Actualizar datos según el tipo de evento
       switch (event.type) {
-        case 'CUENTA_ACTUALIZADA': {
+        case "CUENTA_ACTUALIZADA": {
           const { cuentaId, saldoNuevo } = event.data;
-          
+
           if (!cuentaId || saldoNuevo === undefined) break;
 
           // Actualizar saldo en el state
@@ -244,22 +265,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           );
 
           addNotification(
-            'info',
-            'Cuenta Actualizada',
+            "info",
+            "Cuenta Actualizada",
             `El saldo de tu cuenta ha cambiado a $${saldoNuevo.toFixed(2)}`
           );
           break;
         }
 
-        case 'TRANSFERENCIA_RECIBIDA': {
+        case "TRANSFERENCIA_RECIBIDA": {
           const { monto, cuentaOrigenId } = event.data;
-          
+
           if (!monto || !cuentaOrigenId) break;
 
           addNotification(
-            'success',
-            'Transferencia Recibida',
-            `Has recibido $${monto.toFixed(2)} desde la cuenta ${cuentaOrigenId.substring(0, 8)}...`
+            "success",
+            "Transferencia Recibida",
+            `Has recibido $${monto.toFixed(
+              2
+            )} desde la cuenta ${cuentaOrigenId.substring(0, 8)}...`
           );
 
           // Refrescar datos completos
@@ -267,27 +290,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           break;
         }
 
-        case 'TRANSFERENCIA_ENVIADA': {
+        case "TRANSFERENCIA_ENVIADA": {
           const { monto, cuentaDestinoId } = event.data;
-          
+
           if (!monto || !cuentaDestinoId) break;
 
           addNotification(
-            'info',
-            'Transferencia Enviada',
-            `Se enviaron $${monto.toFixed(2)} a la cuenta ${cuentaDestinoId.substring(0, 8)}...`
+            "info",
+            "Transferencia Enviada",
+            `Se enviaron $${monto.toFixed(
+              2
+            )} a la cuenta ${cuentaDestinoId.substring(0, 8)}...`
           );
           break;
         }
 
-        case 'DEPOSITO_REALIZADO': {
+        case "DEPOSITO_REALIZADO": {
           const { monto } = event.data;
-          
+
           if (!monto) break;
 
           addNotification(
-            'success',
-            'Depósito Realizado',
+            "success",
+            "Depósito Realizado",
             `Se depositaron $${monto.toFixed(2)} en tu cuenta`
           );
 
@@ -296,14 +321,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           break;
         }
 
-        case 'RETIRO_REALIZADO': {
+        case "RETIRO_REALIZADO": {
           const { monto } = event.data;
-          
+
           if (!monto) break;
 
           addNotification(
-            'warning',
-            'Retiro Realizado',
+            "warning",
+            "Retiro Realizado",
             `Se retiraron $${monto.toFixed(2)} de tu cuenta`
           );
 
@@ -312,15 +337,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           break;
         }
 
-        case 'USUARIO_AGREGADO': {
+        case "USUARIO_AGREGADO": {
           const { cuentaId, usuarioEmail, rol } = event.data;
-          
+
           if (!cuentaId || !usuarioEmail) break;
 
           addNotification(
-            'success',
-            'Nuevo Acceso a Cuenta',
-            `${usuarioEmail} fue agregado como ${rol || 'usuario'} a la cuenta ${cuentaId.substring(0, 8)}...`
+            "success",
+            "Nuevo Acceso a Cuenta",
+            `${usuarioEmail} fue agregado como ${
+              rol || "usuario"
+            } a la cuenta ${cuentaId.substring(0, 8)}...`
           );
 
           // Refrescar cuentas
@@ -328,15 +355,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           break;
         }
 
-        case 'USUARIO_REMOVIDO': {
+        case "USUARIO_REMOVIDO": {
           const { cuentaId, usuarioEmail } = event.data;
-          
+
           if (!cuentaId || !usuarioEmail) break;
 
           addNotification(
-            'warning',
-            'Acceso Removido',
-            `${usuarioEmail} fue removido de la cuenta ${cuentaId.substring(0, 8)}...`
+            "warning",
+            "Acceso Removido",
+            `${usuarioEmail} fue removido de la cuenta ${cuentaId.substring(
+              0,
+              8
+            )}...`
           );
 
           // Refrescar cuentas
@@ -344,14 +374,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           break;
         }
 
-        case 'TARJETA_CREADA': {
+        case "TARJETA_CREADA": {
           const { tarjetaId } = event.data;
-          
+
           if (!tarjetaId) break;
 
           addNotification(
-            'success',
-            'Tarjeta Creada',
+            "success",
+            "Tarjeta Creada",
             `Se creó una nueva tarjeta: ${tarjetaId.substring(0, 8)}...`
           );
 
@@ -360,14 +390,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           break;
         }
 
-        case 'TARJETA_ESTADO_CAMBIADO': {
+        case "TARJETA_ESTADO_CAMBIADO": {
           const { tarjetaId, estado } = event.data;
-          
+
           if (!tarjetaId || !estado) break;
 
           addNotification(
-            'info',
-            'Estado de Tarjeta Cambiado',
+            "info",
+            "Estado de Tarjeta Cambiado",
             `La tarjeta ${tarjetaId.substring(0, 8)}... ahora está ${estado}`
           );
 
@@ -381,14 +411,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
 
         default:
-          console.log('Tipo de evento no manejado:', event.type);
+          console.log("Tipo de evento no manejado:", event.type);
       }
     };
 
-    socket.on('banking-event', handleBankingEvent);
+    socket.on("banking-event", handleBankingEvent);
 
     return () => {
-      socket.off('banking-event', handleBankingEvent);
+      socket.off("banking-event", handleBankingEvent);
     };
   }, [connected, user, addNotification, refreshUserData]);
 
@@ -396,7 +426,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       // Detectar operaciones bancarias para refrescar datos
-      if (e.key === 'banking-operation') {
+      if (e.key === "banking-operation") {
         const operation = e.newValue ? JSON.parse(e.newValue) : null;
         if (operation && user) {
           // Refrescar datos si la operación afecta al usuario actual
@@ -405,8 +435,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, [user, refreshUserData]);
 
   const logout = () => {
@@ -454,7 +484,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 export function useApp() {
   const context = useContext(AppContext);
   if (context === undefined) {
-    throw new Error('useApp must be used within an AppProvider');
+    throw new Error("useApp must be used within an AppProvider");
   }
   return context;
 }
