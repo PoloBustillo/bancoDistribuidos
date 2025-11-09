@@ -1,5 +1,6 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { authService } from "./auth/authService";
 import { WorkerClient } from "./services/workerClient";
 import { BancoService } from "./services/bancoService";
@@ -22,6 +23,24 @@ let workerClient: WorkerClient;
 // Inicializar servicios
 const bancoService = new BancoService(null as any);
 const cuentasCompartidasService = new CuentasCompartidasService();
+
+// ========================================
+// 🌐 CONFIGURACIÓN CORS
+// ========================================
+// Permitir peticiones desde el frontend (Next.js)
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000", // Next.js dev
+      "http://localhost:3001", // Worker 1
+      "http://localhost:3002", // Worker 2
+      "http://localhost:3003", // Worker 3
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 app.use(express.json());
 

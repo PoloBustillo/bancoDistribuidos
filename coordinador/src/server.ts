@@ -21,6 +21,18 @@ const coordinator = new LockCoordinator(io);
 
 // Endpoint HTTP para estadísticas
 httpServer.on("request", (req, res) => {
+  // CORS headers para permitir peticiones desde el frontend
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  // Handle preflight
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   if (req.url === "/api/stats" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(coordinator.getEstadisticas(), null, 2));
