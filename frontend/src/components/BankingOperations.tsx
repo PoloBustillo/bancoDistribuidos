@@ -31,6 +31,15 @@ export default function BankingOperations() {
       }
 
       setResult({ success: true, message: response.mensaje || 'Operation successful' });
+      
+      // Emitir evento para sincronizar con otras pestañas
+      localStorage.setItem('banking-operation', JSON.stringify({
+        type: operation,
+        accountId: fromAccount,
+        timestamp: Date.now()
+      }));
+      setTimeout(() => localStorage.removeItem('banking-operation'), 100);
+      
       await refreshUserData();
       setAmount('');
     } catch (error) {

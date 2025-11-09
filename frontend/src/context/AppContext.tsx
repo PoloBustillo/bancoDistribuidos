@@ -1,8 +1,30 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Worker, User, Account, Card } from '@/types';
 import { apiClient } from '@/lib/api';
+import { io, Socket } from 'socket.io-client';
+
+interface BankingEventData {
+  cuentaId?: string;
+  saldoAnterior?: number;
+  saldoNuevo?: number;
+  monto?: number;
+  cuentaOrigenId?: string;
+  cuentaDestinoId?: string;
+  usuarioId?: string;
+  usuarioEmail?: string;
+  rol?: string;
+  tarjetaId?: string;
+  estado?: 'ACTIVA' | 'BLOQUEADA' | 'CANCELADA';
+}
+
+interface BankingEvent {
+  type: string;
+  timestamp: Date;
+  workerId: string;
+  data: BankingEventData;
+}
 
 interface AppState {
   selectedWorker: Worker;
@@ -19,6 +41,23 @@ interface AppState {
   isAuthenticated: boolean;
   logout: () => void;
   refreshUserData: () => Promise<void>;
+  // Socket.IO
+  socketConnected: boolean;
+  socketReconnecting: boolean;
+  socketError: string | null;
+  recentEvents: BankingEvent[];
+  clearEvents: () => void;
+  // Notificaciones
+  notifications: Notification[];
+  clearNotifications: () => void;
+}
+
+interface Notification {
+  id: string;
+  type: 'success' | 'info' | 'warning' | 'error';
+  title: string;
+  message: string;
+  timestamp: Date;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -34,29 +73,100 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  
+  // Socket.IO state
+  const [connected, setConnected] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [events, setEvents] = useState<BankingEvent[]>([]);
+  const socketRef = useRef<Socket | null>(null);
+
+  // Clear events
+  const clearEvents = useCallback(() => {
+    setEvents([]);
+  }, []);
+
+  // Conectar Socket.IO cuando hay usuario autenticado
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    
+    if (!user || !token) {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      return;
+    }
+
+    console.log('🔌 Conectando a Socket.IO:', selectedWorker.url);
+
+    const socket = io(selectedWorker.url, {
+      auth: { token },
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 10000,
+    });
+
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('✅ Socket.IO conectado');
+      setConnected(true);
+      setReconnecting(false);
+      setError(null);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('❌ Socket.IO desconectado:', reason);
+      setConnected(false);
+      
+      if (reason === 'io server disconnect') {
+        socket.connect();
+      }
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('❌ Error de conexión Socket.IO:', err.message);
+      setError(err.message);
+      setConnected(false);
+    });
+
+    socket.on('reconnect', (attemptNumber) => {
+      console.log(`🔄 Reconectado después de ${attemptNumber} intentos`);
+      setReconnecting(false);
+      setError(null);
+    });
+
+    socket.on('reconnect_attempt', () => {
+      setReconnecting(true);
+    });
+
+    socket.on('reconnect_error', (err) => {
+      console.error('❌ Error al reconectar:', err.message);
+      setError(`Error de reconexión: ${err.message}`);
+    });
+
+    socket.on('reconnect_failed', () => {
+      console.error('❌ Falló la reconexión');
+      setError('No se pudo reconectar al servidor');
+      setReconnecting(false);
+    });
+
+    return () => {
+      console.log('🔌 Desconectando Socket.IO');
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [selectedWorker.url, user]);
 
   useEffect(() => {
     apiClient.setWorker(selectedWorker);
   }, [selectedWorker]);
-
-  // Sincronizar logout entre pestañas (permitir múltiples usuarios en diferentes tabs)
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      // Solo sincronizar cuando se hace logout explícito
-      if (e.key === 'logout-event') {
-        const logoutData = e.newValue ? JSON.parse(e.newValue) : null;
-        if (logoutData && user && logoutData.userId === user.id) {
-          // Solo cerrar sesión si es el mismo usuario
-          setUser(null);
-          setAccounts([]);
-          setCards([]);
-        }
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [user]);
 
   const setSelectedWorker = (worker: Worker) => {
     setSelectedWorkerState(worker);
@@ -75,7 +185,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const refreshUserData = async () => {
+  const refreshUserData = useCallback(async () => {
     try {
       const data = await apiClient.getMe();
       setUser(data.usuario);
@@ -84,19 +194,222 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error refreshing user data:', error);
     }
-  };
+  }, []);
+
+  // Función para agregar notificaciones
+  const addNotification = useCallback((
+    type: Notification['type'],
+    title: string,
+    message: string
+  ) => {
+    const notification: Notification = {
+      id: `${Date.now()}-${Math.random()}`,
+      type,
+      title,
+      message,
+      timestamp: new Date(),
+    };
+    setNotifications((prev) => [notification, ...prev].slice(0, 20)); // Máximo 20
+
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
+    }, 5000);
+  }, []);
+
+  const clearNotifications = useCallback(() => {
+    setNotifications([]);
+  }, []);
+
+  // Manejar eventos de Socket.IO en tiempo real
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket || !connected || !user) return;
+
+    const handleBankingEvent = (event: BankingEvent) => {
+      console.log('🔔 Evento bancario recibido:', event);
+
+      // Actualizar datos según el tipo de evento
+      switch (event.type) {
+        case 'CUENTA_ACTUALIZADA': {
+          const { cuentaId, saldoNuevo } = event.data;
+          
+          if (!cuentaId || saldoNuevo === undefined) break;
+
+          // Actualizar saldo en el state
+          setAccounts((prev) =>
+            prev.map((acc) =>
+              acc.id === cuentaId ? { ...acc, saldo: saldoNuevo } : acc
+            )
+          );
+
+          addNotification(
+            'info',
+            'Cuenta Actualizada',
+            `El saldo de tu cuenta ha cambiado a $${saldoNuevo.toFixed(2)}`
+          );
+          break;
+        }
+
+        case 'TRANSFERENCIA_RECIBIDA': {
+          const { monto, cuentaOrigenId } = event.data;
+          
+          if (!monto || !cuentaOrigenId) break;
+
+          addNotification(
+            'success',
+            'Transferencia Recibida',
+            `Has recibido $${monto.toFixed(2)} desde la cuenta ${cuentaOrigenId.substring(0, 8)}...`
+          );
+
+          // Refrescar datos completos
+          refreshUserData();
+          break;
+        }
+
+        case 'TRANSFERENCIA_ENVIADA': {
+          const { monto, cuentaDestinoId } = event.data;
+          
+          if (!monto || !cuentaDestinoId) break;
+
+          addNotification(
+            'info',
+            'Transferencia Enviada',
+            `Se enviaron $${monto.toFixed(2)} a la cuenta ${cuentaDestinoId.substring(0, 8)}...`
+          );
+          break;
+        }
+
+        case 'DEPOSITO_REALIZADO': {
+          const { monto } = event.data;
+          
+          if (!monto) break;
+
+          addNotification(
+            'success',
+            'Depósito Realizado',
+            `Se depositaron $${monto.toFixed(2)} en tu cuenta`
+          );
+
+          // Actualizar saldo
+          refreshUserData();
+          break;
+        }
+
+        case 'RETIRO_REALIZADO': {
+          const { monto } = event.data;
+          
+          if (!monto) break;
+
+          addNotification(
+            'warning',
+            'Retiro Realizado',
+            `Se retiraron $${monto.toFixed(2)} de tu cuenta`
+          );
+
+          // Actualizar saldo
+          refreshUserData();
+          break;
+        }
+
+        case 'USUARIO_AGREGADO': {
+          const { cuentaId, usuarioEmail, rol } = event.data;
+          
+          if (!cuentaId || !usuarioEmail) break;
+
+          addNotification(
+            'success',
+            'Nuevo Acceso a Cuenta',
+            `${usuarioEmail} fue agregado como ${rol || 'usuario'} a la cuenta ${cuentaId.substring(0, 8)}...`
+          );
+
+          // Refrescar cuentas
+          refreshUserData();
+          break;
+        }
+
+        case 'USUARIO_REMOVIDO': {
+          const { cuentaId, usuarioEmail } = event.data;
+          
+          if (!cuentaId || !usuarioEmail) break;
+
+          addNotification(
+            'warning',
+            'Acceso Removido',
+            `${usuarioEmail} fue removido de la cuenta ${cuentaId.substring(0, 8)}...`
+          );
+
+          // Refrescar cuentas
+          refreshUserData();
+          break;
+        }
+
+        case 'TARJETA_CREADA': {
+          const { tarjetaId } = event.data;
+          
+          if (!tarjetaId) break;
+
+          addNotification(
+            'success',
+            'Tarjeta Creada',
+            `Se creó una nueva tarjeta: ${tarjetaId.substring(0, 8)}...`
+          );
+
+          // Refrescar tarjetas
+          refreshUserData();
+          break;
+        }
+
+        case 'TARJETA_ESTADO_CAMBIADO': {
+          const { tarjetaId, estado } = event.data;
+          
+          if (!tarjetaId || !estado) break;
+
+          addNotification(
+            'info',
+            'Estado de Tarjeta Cambiado',
+            `La tarjeta ${tarjetaId.substring(0, 8)}... ahora está ${estado}`
+          );
+
+          // Actualizar estado de tarjeta
+          setCards((prev) =>
+            prev.map((card) =>
+              card.id === tarjetaId ? { ...card, estado } : card
+            )
+          );
+          break;
+        }
+
+        default:
+          console.log('Tipo de evento no manejado:', event.type);
+      }
+    };
+
+    socket.on('banking-event', handleBankingEvent);
+
+    return () => {
+      socket.off('banking-event', handleBankingEvent);
+    };
+  }, [connected, user, addNotification, refreshUserData]);
+
+  // Sincronizar datos de cuentas entre pestañas cuando hay operaciones
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      // Detectar operaciones bancarias para refrescar datos
+      if (e.key === 'banking-operation') {
+        const operation = e.newValue ? JSON.parse(e.newValue) : null;
+        if (operation && user) {
+          // Refrescar datos si la operación afecta al usuario actual
+          refreshUserData();
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [user, refreshUserData]);
 
   const logout = () => {
-    // Emitir evento de logout para sincronizar con otras pestañas
-    if (user) {
-      localStorage.setItem('logout-event', JSON.stringify({ 
-        userId: user.id, 
-        timestamp: Date.now() 
-      }));
-      // Limpiar el evento después de un momento
-      setTimeout(() => localStorage.removeItem('logout-event'), 100);
-    }
-    
     apiClient.logout();
     setUser(null);
     setAccounts([]);
@@ -122,6 +435,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated,
         logout,
         refreshUserData,
+        // Socket.IO
+        socketConnected: connected,
+        socketReconnecting: reconnecting,
+        socketError: error,
+        recentEvents: events,
+        clearEvents,
+        // Notificaciones
+        notifications,
+        clearNotifications,
       }}
     >
       {children}

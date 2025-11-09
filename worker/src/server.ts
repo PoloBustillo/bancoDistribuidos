@@ -1,14 +1,20 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import cors from "cors";
+import { createServer } from "http";
+import { Server as SocketIOServer } from "socket.io";
 import { authService } from "./auth/authService";
 import { WorkerClient } from "./services/workerClient";
 import { BancoService } from "./services/bancoService";
 import { CuentasCompartidasService } from "./services/cuentasCompartidasService";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import { bankingEvents, EventType } from "./services/eventEmitter";
+import type { BankingEvent } from "./services/eventEmitter";
+import jwt from "jsonwebtoken";
 
 const app = express();
+const httpServer = createServer(app);
 const prisma = new PrismaClient();
 
 // Configuración desde variables de entorno
@@ -23,6 +29,189 @@ let workerClient: WorkerClient;
 // Inicializar servicios
 const bancoService = new BancoService(null as any);
 const cuentasCompartidasService = new CuentasCompartidasService();
+
+// ========================================
+// 🔌 CONFIGURACIÓN SOCKET.IO
+// ========================================
+// Socket.IO para eventos en tiempo real
+const JWT_SECRET =
+  process.env.JWT_SECRET || "B4nc0S3cr3_2024_D1str1but3d_JWT_S3cr3t";
+
+const io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:3002",
+      "http://localhost:3003",
+    ],
+    credentials: true,
+  },
+  transports: ["websocket", "polling"],
+});
+
+// Autenticación de Socket.IO
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+      return next(new Error("Token requerido"));
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      usuarioId: string;
+      jti: string;
+    };
+
+    // Verificar que la sesión existe y no ha expirado
+    const sesion = await prisma.sesion.findUnique({
+      where: { jti: decoded.jti },
+    });
+
+    if (!sesion || sesion.expiresAt < new Date()) {
+      return next(new Error("Sesión inválida o expirada"));
+    }
+
+    // Guardar datos del usuario en el socket
+    socket.data.usuarioId = decoded.usuarioId;
+    socket.data.jti = decoded.jti;
+    next();
+  } catch (error) {
+    next(new Error("Autenticación fallida"));
+  }
+});
+
+// Manejar conexiones de Socket.IO
+io.on("connection", async (socket) => {
+  const usuarioId = socket.data.usuarioId;
+  console.log(`🔌 Socket conectado: usuario ${usuarioId}`);
+
+  try {
+    // Unirse a room personal del usuario
+    socket.join(`usuario:${usuarioId}`);
+
+    // Obtener cuentas del usuario y unirse a sus rooms
+    const usuarioCuentas = await prisma.usuarioCuenta.findMany({
+      where: { usuarioId },
+      select: { cuentaId: true },
+    });
+
+    usuarioCuentas.forEach((uc) => {
+      socket.join(`cuenta:${uc.cuentaId}`);
+    });
+
+    console.log(
+      `✅ Usuario ${usuarioId} unido a ${usuarioCuentas.length + 1} rooms`
+    );
+
+    // Evento de suscripción a cuenta específica (para cuentas nuevas)
+    socket.on("subscribe-cuenta", (cuentaId: string) => {
+      socket.join(`cuenta:${cuentaId}`);
+      console.log(`📢 Usuario ${usuarioId} suscrito a cuenta ${cuentaId}`);
+    });
+
+    // Evento de desuscripción
+    socket.on("unsubscribe-cuenta", (cuentaId: string) => {
+      socket.leave(`cuenta:${cuentaId}`);
+      console.log(
+        `📤 Usuario ${usuarioId} desuscrito de cuenta ${cuentaId}`
+      );
+    });
+
+    socket.on("disconnect", () => {
+      console.log(`❌ Socket desconectado: usuario ${usuarioId}`);
+    });
+  } catch (error) {
+    console.error("Error al configurar socket:", error);
+  }
+});
+
+// ========================================
+// 📡 PROPAGACIÓN DE EVENTOS A SOCKET.IO
+// ========================================
+// Escuchar eventos del EventEmitter y enviarlos a clientes Socket.IO
+
+// Evento: Cuenta actualizada
+bankingEvents.on(EventType.CUENTA_ACTUALIZADA, (event: BankingEvent) => {
+  if (event.type === EventType.CUENTA_ACTUALIZADA) {
+    io.to(`cuenta:${event.cuentaId}`).emit("banking-event", event);
+    console.log(
+      `📡 Evento emitido a cuenta ${event.cuentaId}: CUENTA_ACTUALIZADA`
+    );
+  }
+});
+
+// Evento: Transferencia enviada
+bankingEvents.on(EventType.TRANSFERENCIA_ENVIADA, (event: BankingEvent) => {
+  if (event.type === EventType.TRANSFERENCIA_ENVIADA) {
+    io.to(`cuenta:${event.cuentaId}`).emit("banking-event", event);
+    console.log(`📡 Evento: TRANSFERENCIA_ENVIADA - $${event.monto}`);
+  }
+});
+
+// Evento: Transferencia recibida
+bankingEvents.on(EventType.TRANSFERENCIA_RECIBIDA, (event: BankingEvent) => {
+  if (event.type === EventType.TRANSFERENCIA_RECIBIDA) {
+    io.to(`cuenta:${event.cuentaId}`).emit("banking-event", event);
+    console.log(`📡 Evento: TRANSFERENCIA_RECIBIDA - $${event.monto}`);
+  }
+});
+
+// Evento: Depósito realizado
+bankingEvents.on(EventType.DEPOSITO_REALIZADO, (event: BankingEvent) => {
+  if (event.type === EventType.DEPOSITO_REALIZADO) {
+    io.to(`cuenta:${event.cuentaId}`).emit("banking-event", event);
+    console.log(`📡 Evento: DEPOSITO_REALIZADO - $${event.monto}`);
+  }
+});
+
+// Evento: Retiro realizado
+bankingEvents.on(EventType.RETIRO_REALIZADO, (event: BankingEvent) => {
+  if (event.type === EventType.RETIRO_REALIZADO) {
+    io.to(`cuenta:${event.cuentaId}`).emit("banking-event", event);
+    console.log(`📡 Evento: RETIRO_REALIZADO - $${event.monto}`);
+  }
+});
+
+// Evento: Usuario agregado a cuenta
+bankingEvents.on(EventType.USUARIO_AGREGADO, (event: BankingEvent) => {
+  if (event.type === EventType.USUARIO_AGREGADO) {
+    io.to(`cuenta:${event.cuentaId}`).emit("banking-event", event);
+    io.to(`usuario:${event.usuarioId}`).emit("banking-event", event);
+    console.log(
+      `📡 Evento: USUARIO_AGREGADO - ${event.usuarioEmail} a cuenta ${event.cuentaId}`
+    );
+  }
+});
+
+// Evento: Usuario removido de cuenta
+bankingEvents.on(EventType.USUARIO_REMOVIDO, (event: BankingEvent) => {
+  if (event.type === EventType.USUARIO_REMOVIDO) {
+    io.to(`cuenta:${event.cuentaId}`).emit("banking-event", event);
+    io.to(`usuario:${event.usuarioId}`).emit("banking-event", event);
+    console.log(
+      `📡 Evento: USUARIO_REMOVIDO - ${event.usuarioEmail} de cuenta ${event.cuentaId}`
+    );
+  }
+});
+
+// Evento: Tarjeta creada
+bankingEvents.on(EventType.TARJETA_CREADA, (event: BankingEvent) => {
+  if (event.type === EventType.TARJETA_CREADA) {
+    io.to(`usuario:${event.usuarioId}`).emit("banking-event", event);
+    console.log(`📡 Evento: TARJETA_CREADA - usuario ${event.usuarioId}`);
+  }
+});
+
+// Evento: Estado de tarjeta cambiado
+bankingEvents.on(EventType.TARJETA_ESTADO_CAMBIADO, (event: BankingEvent) => {
+  if (event.type === EventType.TARJETA_ESTADO_CAMBIADO) {
+    io.to(`usuario:${event.usuarioId}`).emit("banking-event", event);
+    console.log(
+      `📡 Evento: TARJETA_ESTADO_CAMBIADO - ${event.estado} para usuario ${event.usuarioId}`
+    );
+  }
+});
 
 // ========================================
 // 🌐 CONFIGURACIÓN CORS
@@ -517,8 +706,11 @@ app.get("/api/health", (req: Request, res: Response) => {
 
 // Iniciar servidor
 async function iniciar() {
-  // Primero iniciar el servidor para obtener el puerto real
-  const server = app.listen(PORT, async () => {
+  // Configurar el workerId en el EventEmitter
+  bankingEvents.setWorkerId(WORKER_ID || "worker-unknown");
+
+  // Primero iniciar el servidor HTTP para obtener el puerto real
+  const server = httpServer.listen(PORT, async () => {
     // Obtener el puerto real asignado
     const address = server.address();
     ACTUAL_PORT =
@@ -527,6 +719,9 @@ async function iniciar() {
     // Ahora sí crear WORKER_ID y workerClient con el puerto real
     WORKER_ID = process.env.WORKER_ID || `worker-${ACTUAL_PORT}`;
     workerClient = new WorkerClient(WORKER_ID, ACTUAL_PORT, COORDINADOR_URL);
+
+    // Actualizar el workerId en el EventEmitter
+    bankingEvents.setWorkerId(WORKER_ID);
 
     // Actualizar el workerClient en bancoService
     (bancoService as any).workerClient = workerClient;
@@ -551,6 +746,7 @@ async function iniciar() {
         workerClient.estaConectado() ? "✅ ACTIVO" : "❌ DESACTIVADO"
       }`
     );
+    console.log(`⚡ Socket.IO: ✅ ACTIVO (eventos en tiempo real)`);
     console.log(`\n📋 Endpoints de Autenticación:`);
     console.log(`   POST /api/auth/register - Registrar usuario`);
     console.log(`   POST /api/auth/login - Iniciar sesión`);
@@ -560,7 +756,12 @@ async function iniciar() {
     console.log(`   POST /api/banco/transferir - Transferencia entre cuentas`);
     console.log(`   POST /api/banco/depositar - Depósito en cuenta`);
     console.log(`   POST /api/banco/retirar - Retiro de cuenta`);
-    console.log(`   GET  /api/banco/saldo/:cuentaId - Consultar saldo`);
+    console.log(`   POST /api/banco/consultar-saldo - Consultar saldo`);
+    console.log(`\n🔔 Eventos en Tiempo Real (Socket.IO):`);
+    console.log(`   📡 CUENTA_ACTUALIZADA - Cambios en saldo`);
+    console.log(`   💸 TRANSFERENCIA_RECIBIDA - Dinero recibido`);
+    console.log(`   💳 DEPOSITO_REALIZADO - Depósito en cuenta`);
+    console.log(`   🎯 USUARIO_AGREGADO - Nuevo acceso a cuenta`);
     console.log(`\n🔧 Utilidades:`);
     console.log(`   GET  /api/health - Estado del servidor\n`);
   });

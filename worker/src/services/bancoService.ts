@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { WorkerClient } from "./workerClient";
 import { Prioridad } from "../shared/types";
+import { bankingEvents } from "./eventEmitter";
 
 const prisma = new PrismaClient();
 
@@ -152,6 +153,52 @@ export class BancoService {
       console.log(`✅ Transferencia completada: $${monto}`);
 
       // ========================================
+      // 📡 EMITIR EVENTOS EN TIEMPO REAL
+      // ========================================
+      // Obtener usuarios con acceso a cada cuenta para notificarlos
+      const usuariosOrigen = await prisma.usuarioCuenta.findMany({
+        where: { cuentaId: cuentaOrigenId },
+        select: { usuarioId: true },
+      });
+
+      const usuariosDestino = await prisma.usuarioCuenta.findMany({
+        where: { cuentaId: cuentaDestinoId },
+        select: { usuarioId: true },
+      });
+
+      // Emitir evento de transferencia enviada
+      bankingEvents.emitTransferenciaEnviada(
+        cuentaOrigenId,
+        cuentaDestinoId,
+        monto,
+        usuarioId
+      );
+
+      // Emitir evento de transferencia recibida
+      bankingEvents.emitTransferenciaRecibida(
+        cuentaDestinoId,
+        cuentaOrigenId,
+        monto,
+        usuarioId
+      );
+
+      // Emitir actualización de saldo para cuenta origen
+      bankingEvents.emitCuentaActualizada(
+        cuentaOrigenId,
+        resultado.origen.saldoAnterior,
+        resultado.origen.saldoNuevo,
+        usuariosOrigen.map((u) => u.usuarioId)
+      );
+
+      // Emitir actualización de saldo para cuenta destino
+      bankingEvents.emitCuentaActualizada(
+        cuentaDestinoId,
+        resultado.destino.saldoAnterior,
+        resultado.destino.saldoNuevo,
+        usuariosDestino.map((u) => u.usuarioId)
+      );
+
+      // ========================================
       // 🎓 FIN DE SECCIÓN CRÍTICA
       // ========================================
       // La operación se completó exitosamente.
@@ -257,6 +304,25 @@ export class BancoService {
 
       console.log(`✅ Depósito completado: $${monto}`);
 
+      // ========================================
+      // 📡 EMITIR EVENTOS EN TIEMPO REAL
+      // ========================================
+      const usuariosCuenta = await prisma.usuarioCuenta.findMany({
+        where: { cuentaId },
+        select: { usuarioId: true },
+      });
+
+      // Emitir evento de depósito
+      bankingEvents.emitDeposito(cuentaId, monto, usuarioId);
+
+      // Emitir actualización de saldo
+      bankingEvents.emitCuentaActualizada(
+        cuentaId,
+        cuenta.saldo,
+        cuentaActualizada.saldo,
+        usuariosCuenta.map((u) => u.usuarioId)
+      );
+
       return {
         mensaje: "Depósito realizado exitosamente",
         monto,
@@ -353,6 +419,25 @@ export class BancoService {
       });
 
       console.log(`✅ Retiro completado: $${monto}`);
+
+      // ========================================
+      // 📡 EMITIR EVENTOS EN TIEMPO REAL
+      // ========================================
+      const usuariosCuenta = await prisma.usuarioCuenta.findMany({
+        where: { cuentaId },
+        select: { usuarioId: true },
+      });
+
+      // Emitir evento de retiro
+      bankingEvents.emitRetiro(cuentaId, monto, usuarioId);
+
+      // Emitir actualización de saldo
+      bankingEvents.emitCuentaActualizada(
+        cuentaId,
+        cuenta.saldo,
+        cuentaActualizada.saldo,
+        usuariosCuenta.map((u) => u.usuarioId)
+      );
 
       return {
         mensaje: "Retiro realizado exitosamente",

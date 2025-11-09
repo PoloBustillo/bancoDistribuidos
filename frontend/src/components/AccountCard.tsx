@@ -21,6 +21,15 @@ export default function AccountCard({ account }: AccountCardProps) {
     setSharing(true);
     try {
       await apiClient.shareAccount(account.id, email, rol);
+      
+      // Emitir evento para sincronizar con otras pestañas
+      localStorage.setItem('banking-operation', JSON.stringify({
+        type: 'share',
+        accountId: account.id,
+        timestamp: Date.now()
+      }));
+      setTimeout(() => localStorage.removeItem('banking-operation'), 100);
+      
       await refreshUserData();
       setEmail('');
       setShowShare(false);

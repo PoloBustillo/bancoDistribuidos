@@ -3,6 +3,7 @@
 import { useApp } from '@/context/AppContext';
 import AccountCard from './AccountCard';
 import BankingOperations from './BankingOperations';
+import ConnectionStatus from './ConnectionStatus';
 import { useState } from 'react';
 import { apiClient } from '@/lib/api';
 
@@ -17,6 +18,14 @@ export default function Dashboard() {
     setCreatingAccount(true);
     try {
       await apiClient.createAdditionalAccount(accountType, accountName);
+      
+      // Emitir evento para sincronizar con otras pestañas
+      localStorage.setItem('banking-operation', JSON.stringify({
+        type: 'create-account',
+        timestamp: Date.now()
+      }));
+      setTimeout(() => localStorage.removeItem('banking-operation'), 100);
+      
       await refreshUserData();
       setAccountName('');
     } catch (error) {
@@ -31,12 +40,19 @@ export default function Dashboard() {
       {/* User Info */}
       <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
         <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-2xl font-bold text-white">{user?.nombre}</h2>
-            <p className="text-gray-400">{user?.email}</p>
-            <p className="text-sm text-gray-500 mt-2">
-              {accounts.length} cuenta{accounts.length !== 1 ? 's' : ''} • {cards.length} tarjeta{cards.length !== 1 ? 's' : ''}
-            </p>
+          <div className="flex-1">
+            <div className="flex items-center gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white">{user?.nombre}</h2>
+                <p className="text-gray-400">{user?.email}</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  {accounts.length} cuenta{accounts.length !== 1 ? 's' : ''} • {cards.length} tarjeta{cards.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <div className="ml-4">
+                <ConnectionStatus />
+              </div>
+            </div>
           </div>
           <button
             onClick={logout}

@@ -12,6 +12,7 @@
 // ========================================
 
 import { PrismaClient } from "@prisma/client";
+import { bankingEvents } from "./eventEmitter";
 
 const prisma = new PrismaClient();
 
@@ -92,6 +93,16 @@ export class CuentasCompartidasService {
       },
     });
 
+    // ========================================
+    // 📡 EMITIR EVENTO EN TIEMPO REAL
+    // ========================================
+    bankingEvents.emitUsuarioAgregado(
+      cuentaId,
+      nuevoUsuario.id,
+      nuevoUsuario.email,
+      rol
+    );
+
     return {
       mensaje: `Usuario ${nuevoUsuario.nombre} agregado a la cuenta con rol ${rol}`,
       usuarioCuenta,
@@ -164,6 +175,11 @@ export class CuentasCompartidasService {
       },
     });
 
+    // ========================================
+    // 📡 EMITIR EVENTO EN TIEMPO REAL
+    // ========================================
+    bankingEvents.emitTarjetaCreada(tarjeta.id, usuarioId, cuentaId);
+
     return {
       mensaje: "Tarjeta creada exitosamente",
       tarjeta: {
@@ -210,6 +226,16 @@ export class CuentasCompartidasService {
       where: { id: tarjetaId },
       data: { estado: nuevoEstado },
     });
+
+    // ========================================
+    // 📡 EMITIR EVENTO EN TIEMPO REAL
+    // ========================================
+    bankingEvents.emitTarjetaEstadoCambiado(
+      tarjetaId,
+      usuarioId,
+      tarjeta.cuentaId,
+      nuevoEstado
+    );
 
     return {
       mensaje: `Tarjeta ${nuevoEstado.toLowerCase()}`,
@@ -373,6 +399,11 @@ export class CuentasCompartidasService {
     }
 
     // 3. Remover usuario
+    const usuarioRemovido = await prisma.usuario.findUnique({
+      where: { id: usuarioARemoverId },
+      select: { email: true },
+    });
+
     await prisma.usuarioCuenta.delete({
       where: {
         usuarioId_cuentaId: {
@@ -381,6 +412,17 @@ export class CuentasCompartidasService {
         },
       },
     });
+
+    // ========================================
+    // 📡 EMITIR EVENTO EN TIEMPO REAL
+    // ========================================
+    if (usuarioRemovido) {
+      bankingEvents.emitUsuarioRemovido(
+        cuentaId,
+        usuarioARemoverId,
+        usuarioRemovido.email
+      );
+    }
 
     return {
       mensaje: "Usuario removido de la cuenta exitosamente",
