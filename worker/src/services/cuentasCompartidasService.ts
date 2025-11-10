@@ -11,11 +11,9 @@
 // - Sincronización de cambios entre múltiples usuarios
 // ========================================
 
-import { PrismaClient } from "@prisma/client";
+import prisma from "../prisma/client";
 import { bankingEvents } from "./eventEmitter";
 import { WorkerClient } from "./workerClient";
-
-const prisma = new PrismaClient();
 
 export class CuentasCompartidasService {
   private workerClient: WorkerClient;

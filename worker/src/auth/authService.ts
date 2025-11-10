@@ -11,12 +11,10 @@
 // - Seguridad distribuida: JWT + validación en BD
 // ========================================
 
-import { PrismaClient } from "@prisma/client";
+import prisma from "../prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
-
-const prisma = new PrismaClient();
 const JWT_SECRET =
   process.env.JWT_SECRET || "B4nc0S3cr3_2024_D1str1but3d_JWT_S3cr3t";
 const JWT_EXPIRATION = "24h";

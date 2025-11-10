@@ -6,7 +6,10 @@
     "dev": "bun --watch src/server.ts",
     "start": "bun src/server.ts",
     "db:push": "bunx prisma db push",
-    "db:studio": "bunx prisma studio"
+    "db:studio": "bunx prisma studio",
+    "prisma:generate": "bunx prisma generate --schema=prisma/schema.prisma",
+    "prisma:migrate:dev": "bunx prisma migrate dev --schema=prisma/schema.prisma",
+    "prisma:migrate:deploy": "bunx prisma migrate deploy --schema=prisma/schema.prisma"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

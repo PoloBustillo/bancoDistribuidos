@@ -1,9 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "../prisma/client";
 import { WorkerClient } from "./workerClient";
 import { Prioridad } from "../../../shared/types";
 import { bankingEvents } from "./eventEmitter";
-
-const prisma = new PrismaClient();
 
 export class BancoService {
   constructor(private workerClient: WorkerClient) {}

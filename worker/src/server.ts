@@ -7,7 +7,7 @@ import { authService } from "./auth/authService";
 import { WorkerClient } from "./services/workerClient";
 import { BancoService } from "./services/bancoService";
 import { CuentasCompartidasService } from "./services/cuentasCompartidasService";
-import { PrismaClient } from "@prisma/client";
+import prisma from "./prisma/client";
 import { z } from "zod";
 import { bankingEvents, EventType } from "./services/eventEmitter";
 import type { BankingEvent } from "./services/eventEmitter";
@@ -15,7 +15,7 @@ import jwt from "jsonwebtoken";
 
 const app = express();
 const httpServer = createServer(app);
-const prisma = new PrismaClient();
+// singleton prisma client imported from `./prisma/client`
 
 // Configuración desde variables de entorno
 let PORT = parseInt(process.env.PORT || "0"); // 0 = puerto automático
