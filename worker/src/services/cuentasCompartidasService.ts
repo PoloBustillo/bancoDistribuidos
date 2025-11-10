@@ -13,10 +13,16 @@
 
 import { PrismaClient } from "@prisma/client";
 import { bankingEvents } from "./eventEmitter";
+import { WorkerClient } from "./workerClient";
 
 const prisma = new PrismaClient();
 
 export class CuentasCompartidasService {
+  private workerClient: WorkerClient;
+
+  constructor(workerClient: WorkerClient) {
+    this.workerClient = workerClient;
+  }
   // ========================================
   // 🎓 AGREGAR USUARIO A CUENTA COMPARTIDA
   // ========================================
@@ -195,58 +201,73 @@ export class CuentasCompartidasService {
   }
 
   // ========================================
-  // 🎓 BLOQUEAR/DESBLOQUEAR TARJETA INDIVIDUAL
+  // 🎓 CAMBIAR ESTADO DE TARJETA (BLOQUEAR/DESBLOQUEAR)
   // ========================================
   // Solo el dueño de la tarjeta puede bloquearla/desbloquearla.
   // Bloquear una tarjeta NO afecta a las tarjetas de otros usuarios
   // de la misma cuenta compartida.
   //
   // Concepto: Operaciones individuales en recursos compartidos
+  // + Lock distribuido para evitar race conditions
   // ========================================
   async cambiarEstadoTarjeta(
     tarjetaId: string,
     usuarioId: string,
     nuevoEstado: "ACTIVA" | "BLOQUEADA" | "CANCELADA"
   ) {
-    // 1. Verificar que la tarjeta pertenece al usuario
-    const tarjeta = await prisma.tarjeta.findUnique({
-      where: { id: tarjetaId },
-    });
-
-    if (!tarjeta) {
-      throw new Error("Tarjeta no encontrada");
-    }
-
-    if (tarjeta.usuarioId !== usuarioId) {
-      throw new Error("Esta tarjeta no te pertenece");
-    }
-
-    // 2. Actualizar estado
-    const tarjetaActualizada = await prisma.tarjeta.update({
-      where: { id: tarjetaId },
-      data: { estado: nuevoEstado },
-    });
-
     // ========================================
-    // 📡 EMITIR EVENTO EN TIEMPO REAL
+    // 🔒 LOCK DISTRIBUIDO: Bloquear TARJETA
     // ========================================
-    bankingEvents.emitTarjetaEstadoCambiado(
+    // Evita que dos workers cambien el estado simultáneamente
+    const requestId = await this.workerClient.lockTarjeta(
       tarjetaId,
-      usuarioId,
-      tarjeta.cuentaId,
-      nuevoEstado
+      `cambiar-estado-tarjeta-${nuevoEstado}`
     );
 
-    return {
-      mensaje: `Tarjeta ${nuevoEstado.toLowerCase()}`,
-      tarjeta: {
-        numeroTarjeta: tarjetaActualizada.numeroTarjeta,
-        estado: tarjetaActualizada.estado,
-      },
-    };
-  }
+    try {
+      // 1. Verificar que la tarjeta pertenece al usuario
+      const tarjeta = await prisma.tarjeta.findUnique({
+        where: { id: tarjetaId },
+      });
 
-  // ========================================
+      if (!tarjeta) {
+        throw new Error("Tarjeta no encontrada");
+      }
+
+      if (tarjeta.usuarioId !== usuarioId) {
+        throw new Error("Esta tarjeta no te pertenece");
+      }
+
+      // 2. Actualizar estado
+      const tarjetaActualizada = await prisma.tarjeta.update({
+        where: { id: tarjetaId },
+        data: { estado: nuevoEstado },
+      });
+
+      // ========================================
+      // 📡 EMITIR EVENTO EN TIEMPO REAL
+      // ========================================
+      bankingEvents.emitTarjetaEstadoCambiado(
+        tarjetaId,
+        usuarioId,
+        tarjeta.cuentaId,
+        nuevoEstado
+      );
+
+      return {
+        mensaje: `Tarjeta ${nuevoEstado.toLowerCase()}`,
+        tarjeta: {
+          numeroTarjeta: tarjetaActualizada.numeroTarjeta,
+          estado: tarjetaActualizada.estado,
+        },
+      };
+    } finally {
+      // ========================================
+      // 🔓 UNLOCK: Liberar TARJETA
+      // ========================================
+      await this.workerClient.unlockTarjeta(requestId, tarjetaId);
+    }
+  } // ========================================
   // 🎓 LISTAR USUARIOS DE UNA CUENTA COMPARTIDA
   // ========================================
   // Muestra todos los usuarios que tienen acceso a una cuenta

@@ -347,4 +347,44 @@ export class WorkerClient {
     }));
     return this.liberarLock(requestId, recursos);
   }
+
+  // ============================================
+  // Métodos para Locks de TARJETAS
+  // ============================================
+
+  async lockTarjeta(
+    tarjetaId: string,
+    operacion: string,
+    prioridad: Prioridad = Prioridad.NORMAL
+  ): Promise<string> {
+    const recurso: RecursoId = { tipo: TipoRecurso.TARJETA, id: tarjetaId };
+    return this.solicitarLock([recurso], operacion, prioridad);
+  }
+
+  async lockTarjetas(
+    tarjetaIds: string[],
+    operacion: string,
+    prioridad: Prioridad = Prioridad.NORMAL
+  ): Promise<string> {
+    const recursos: RecursoId[] = tarjetaIds.map((id) => ({
+      tipo: TipoRecurso.TARJETA,
+      id,
+    }));
+    return this.solicitarLock(recursos, operacion, prioridad);
+  }
+
+  async unlockTarjeta(requestId: string, tarjetaId: string): Promise<void> {
+    const recursos: RecursoId[] = [
+      { tipo: TipoRecurso.TARJETA, id: tarjetaId },
+    ];
+    return this.liberarLock(requestId, recursos);
+  }
+
+  async unlockTarjetas(requestId: string, tarjetaIds: string[]): Promise<void> {
+    const recursos: RecursoId[] = tarjetaIds.map((id) => ({
+      tipo: TipoRecurso.TARJETA,
+      id,
+    }));
+    return this.liberarLock(requestId, recursos);
+  }
 }

@@ -26,9 +26,9 @@ let ACTUAL_PORT = PORT;
 let WORKER_ID = "";
 let workerClient: WorkerClient;
 
-// Inicializar servicios
+// Inicializar servicios (se completan después de tener workerClient)
 const bancoService = new BancoService(null as any);
-const cuentasCompartidasService = new CuentasCompartidasService();
+let cuentasCompartidasService: CuentasCompartidasService;
 
 // ========================================
 // 🔌 CONFIGURACIÓN SOCKET.IO
@@ -723,6 +723,9 @@ async function iniciar() {
 
     // Actualizar el workerClient en bancoService
     (bancoService as any).workerClient = workerClient;
+
+    // Inicializar cuentasCompartidasService con workerClient
+    cuentasCompartidasService = new CuentasCompartidasService(workerClient);
 
     // Intentar conectar al coordinador
     try {

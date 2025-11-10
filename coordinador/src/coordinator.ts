@@ -9,11 +9,7 @@ import type {
   RegisterWorker,
   RecursoId,
 } from "./shared/types";
-import {
-  TipoMensaje,
-  generarClaveRecurso,
-  tienenConflicto,
-} from "./shared/types";
+import { TipoMensaje, generarClaveRecurso } from "./shared/types";
 
 // ========================================
 // 🎓 COORDINADOR CENTRAL DE LOCKS
@@ -148,6 +144,18 @@ export class LockCoordinator {
     console.log(
       `📥 Lock request de ${request.workerId}: ${request.operacion} (${request.recursos.length} recursos)`
     );
+
+    // Si el worker está al máximo de su capacidad, no intentamos concederle
+    // más locks; lo enviamos a la cola para que se procese cuando libere
+    // recursos (evita sobrecargar un worker con demasiadas operaciones)
+    const solicitante = this.trabajadores.get(request.workerId);
+    if (solicitante && solicitante.locksActivos >= solicitante.capacidad) {
+      console.log(
+        `⚠️ Worker ${request.workerId} alcanzó su capacidad (${solicitante.capacidad}), encolando request ${request.requestId}`
+      );
+      this.agregarACola(socket, request);
+      return;
+    }
 
     // ========================================
     // 🎓 VERIFICACIÓN DE CONFLICTOS
@@ -351,6 +359,18 @@ export class LockCoordinator {
 
       if (!conflicto) {
         // ✅ Recurso ya disponible → conceder lock
+        // Antes de conceder, comprobar que el worker solicitante no esté
+        // al máximo de su capacidad
+        const workerPendiente = this.trabajadores.get(entry.request.workerId);
+        if (
+          workerPendiente &&
+          workerPendiente.locksActivos >= workerPendiente.capacidad
+        ) {
+          // mantiene en pendientes para revisar más tarde
+          pendientes.push(entry);
+          continue;
+        }
+
         const socket = this.io.sockets.sockets.get(entry.socketId);
         if (socket) {
           this.concederLock(socket, entry.request);

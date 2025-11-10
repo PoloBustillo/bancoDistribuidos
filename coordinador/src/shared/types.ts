@@ -1,6 +1,11 @@
+/*
+TipoRecurso.CUENTA para bloquear cuentas bancarias
+Se usa en transferencias, depósitos y retiros
+El coordinador usa esta clave para saber qué recurso bloquear
+*/
 export enum TipoRecurso {
   CUENTA = "CUENTA",
-  USUARIO = "USUARIO",
+  TARJETA = "TARJETA",
 }
 
 export interface RecursoId {

@@ -1,6 +1,6 @@
 export enum TipoRecurso {
   CUENTA = "CUENTA",
-  USUARIO = "USUARIO",
+  TARJETA = "TARJETA",
 }
 
 export interface RecursoId {
