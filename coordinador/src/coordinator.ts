@@ -8,8 +8,8 @@ import type {
   Heartbeat,
   RegisterWorker,
   RecursoId,
-} from "./shared/types";
-import { TipoMensaje, generarClaveRecurso } from "./shared/types";
+} from "../../shared/types";
+import { TipoMensaje, generarClaveRecurso } from "../../shared/types";
 
 // ========================================
 // 🎓 COORDINADOR CENTRAL DE LOCKS

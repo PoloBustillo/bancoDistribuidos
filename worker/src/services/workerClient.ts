@@ -15,7 +15,7 @@
 import { io } from "socket.io-client";
 import type { Socket } from "socket.io-client";
 import { v4 as uuidv4 } from "uuid";
-import { TipoMensaje, TipoRecurso, Prioridad } from "../shared/types";
+import { TipoMensaje, TipoRecurso, Prioridad } from "../../../shared/types";
 import type {
   RecursoId,
   LockRequest,
@@ -24,7 +24,7 @@ import type {
   LockDenied,
   Heartbeat,
   RegisterWorker,
-} from "../shared/types";
+} from "../../../shared/types";
 
 interface LockPendiente {
   requestId: string;

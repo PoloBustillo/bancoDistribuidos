@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { WorkerClient } from "./workerClient";
-import { Prioridad } from "../shared/types";
+import { Prioridad } from "../../../shared/types";
 import { bankingEvents } from "./eventEmitter";
 
 const prisma = new PrismaClient();
