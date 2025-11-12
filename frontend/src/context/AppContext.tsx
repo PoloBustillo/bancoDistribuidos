@@ -69,7 +69,31 @@ interface Notification {
 
 const AppContext = createContext<AppState | undefined>(undefined);
 
-const defaultWorkers: Worker[] = [
+// Detectar si estamos en producción (Vercel) o desarrollo (localhost)
+const isProduction = typeof window !== 'undefined' && 
+  (window.location.hostname === 'banco-distribuidos.vercel.app' || 
+   window.location.protocol === 'https:');
+
+const defaultWorkers: Worker[] = isProduction ? [
+  {
+    id: "worker1",
+    name: "Worker 1 (API1)",
+    url: "https://api1.psic-danieladiaz.com",
+    color: "bg-blue-500",
+  },
+  {
+    id: "worker2",
+    name: "Worker 2 (API2)",
+    url: "https://api2.psic-danieladiaz.com",
+    color: "bg-green-500",
+  },
+  {
+    id: "worker3",
+    name: "Worker 3 (API3)",
+    url: "https://api3.psic-danieladiaz.com",
+    color: "bg-purple-500",
+  },
+] : [
   {
     id: "worker1",
     name: "Worker 1",
