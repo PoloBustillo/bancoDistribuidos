@@ -74,36 +74,36 @@ jobs:
             # Ejecutar migraciones de base de datos (solo si es necesario)
             echo "🗄️  Ejecutando migraciones..."
             bunx prisma migrate deploy --schema=prisma/schema.prisma || echo "⚠️  Migraciones no aplicadas"
-            
+
             cd ..
-            
+
             # Instalar PM2 si no está instalado
             if ! command -v pm2 &> /dev/null; then
               echo "📦 Instalando PM2..."
               npm install -g pm2
             fi
-            
+
             echo "🛑 Deteniendo servicios existentes y liberando puertos..."
             pm2 delete all 2>/dev/null || true
-            
+
             # Esperar a que los procesos terminen completamente
             sleep 2
-            
+
             # Matar cualquier proceso que esté usando los puertos (por si acaso)
             echo "🔍 Verificando puertos..."
             fuser -k 4000/tcp 2>/dev/null || true
             fuser -k 3001/tcp 2>/dev/null || true
             fuser -k 3002/tcp 2>/dev/null || true
             fuser -k 3003/tcp 2>/dev/null || true
-            
+
             # Esperar un momento después de liberar puertos
             sleep 2
-            
+
             echo "🚀 Iniciando servicios con PM2 usando ecosystem.config.json..."
-            
+
             # Usar el archivo de configuración ecosystem.config.json
             pm2 start ecosystem.config.json
-            
+
             # Guardar configuración de PM2
             pm2 save
 

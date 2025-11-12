@@ -1,21 +1,34 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useApp } from '@/context/AppContext';
+import { useState } from "react";
+import { useApp } from "@/context/AppContext";
 
-const workerColors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500', 'bg-yellow-500'];
+const workerColors = [
+  "bg-blue-500",
+  "bg-green-500",
+  "bg-purple-500",
+  "bg-orange-500",
+  "bg-pink-500",
+  "bg-yellow-500",
+];
 
 export default function WorkerSelector() {
-  const { selectedWorker, setSelectedWorker, workers, addWorker, removeWorker } = useApp();
+  const {
+    selectedWorker,
+    setSelectedWorker,
+    workers,
+    addWorker,
+    removeWorker,
+  } = useApp();
   const [showAddWorker, setShowAddWorker] = useState(false);
-  const [newWorkerPort, setNewWorkerPort] = useState('');
-  const [newWorkerHost, setNewWorkerHost] = useState('localhost');
-  const [newWorkerName, setNewWorkerName] = useState('');
+  const [newWorkerPort, setNewWorkerPort] = useState("");
+  const [newWorkerHost, setNewWorkerHost] = useState("localhost");
+  const [newWorkerName, setNewWorkerName] = useState("");
   const [useCustomUrl, setUseCustomUrl] = useState(false);
 
   const handleAddWorker = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     let workerUrl: string;
     let workerId: string;
     let workerName: string;
@@ -23,33 +36,36 @@ export default function WorkerSelector() {
     if (useCustomUrl) {
       // Modo URL personalizada
       const urlInput = newWorkerHost.trim();
-      
+
       // Validar que sea una URL válida
       try {
-        const url = new URL(urlInput.startsWith('http') ? urlInput : `http://${urlInput}`);
+        const url = new URL(
+          urlInput.startsWith("http") ? urlInput : `http://${urlInput}`
+        );
         workerUrl = url.origin;
-        workerId = `worker-${url.hostname}-${url.port || '80'}`;
-        workerName = newWorkerName.trim() || `${url.hostname}:${url.port || '80'}`;
+        workerId = `worker-${url.hostname}-${url.port || "80"}`;
+        workerName =
+          newWorkerName.trim() || `${url.hostname}:${url.port || "80"}`;
       } catch {
-        alert('URL inválida. Usa el formato: http://host:puerto o host:puerto');
+        alert("URL inválida. Usa el formato: http://host:puerto o host:puerto");
         return;
       }
     } else {
       // Modo puerto localhost
       const port = parseInt(newWorkerPort);
       if (port < 1024 || port > 65535) {
-        alert('El puerto debe estar entre 1024 y 65535');
+        alert("El puerto debe estar entre 1024 y 65535");
         return;
       }
-      
+
       workerId = `worker-${port}`;
       workerUrl = `http://localhost:${port}`;
       workerName = newWorkerName.trim() || `Worker ${port}`;
     }
 
     // Verificar que no exista ya
-    if (workers.some(w => w.id === workerId || w.url === workerUrl)) {
-      alert('Ya existe un worker con ese ID o URL');
+    if (workers.some((w) => w.id === workerId || w.url === workerUrl)) {
+      alert("Ya existe un worker con ese ID o URL");
       return;
     }
 
@@ -61,9 +77,9 @@ export default function WorkerSelector() {
     };
 
     addWorker(newWorker);
-    setNewWorkerPort('');
-    setNewWorkerHost('localhost');
-    setNewWorkerName('');
+    setNewWorkerPort("");
+    setNewWorkerHost("localhost");
+    setNewWorkerName("");
     setShowAddWorker(false);
     setUseCustomUrl(false);
   };
@@ -73,7 +89,7 @@ export default function WorkerSelector() {
       <h3 className="text-sm font-semibold text-gray-300 mb-3">
         🔌 Selección de Worker
       </h3>
-      
+
       <div className="flex flex-wrap gap-2 mb-3">
         {workers.map((worker) => (
           <div key={worker.id} className="flex items-center gap-1">
@@ -82,13 +98,15 @@ export default function WorkerSelector() {
               className={`px-4 py-2 rounded-lg font-medium transition-all ${
                 selectedWorker.id === worker.id
                   ? `${worker.color} text-white shadow-lg`
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
               }`}
             >
               <div className="flex items-center justify-center gap-2">
                 <div
                   className={`w-2 h-2 rounded-full ${
-                    selectedWorker.id === worker.id ? 'bg-white animate-pulse' : 'bg-gray-500'
+                    selectedWorker.id === worker.id
+                      ? "bg-white animate-pulse"
+                      : "bg-gray-500"
                   }`}
                 />
                 {worker.name}
@@ -106,7 +124,7 @@ export default function WorkerSelector() {
             )}
           </div>
         ))}
-        
+
         <button
           onClick={() => setShowAddWorker(!showAddWorker)}
           className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg font-medium transition-colors"
@@ -116,15 +134,18 @@ export default function WorkerSelector() {
       </div>
 
       {showAddWorker && (
-        <form onSubmit={handleAddWorker} className="p-4 bg-gray-700/50 rounded-lg space-y-3">
+        <form
+          onSubmit={handleAddWorker}
+          className="p-4 bg-gray-700/50 rounded-lg space-y-3"
+        >
           <div className="flex items-center gap-3 mb-3">
             <button
               type="button"
               onClick={() => setUseCustomUrl(false)}
               className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                 !useCustomUrl
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-600 text-gray-300 hover:bg-gray-500"
               }`}
             >
               🏠 Localhost
@@ -134,8 +155,8 @@ export default function WorkerSelector() {
               onClick={() => setUseCustomUrl(true)}
               className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                 useCustomUrl
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-600 text-gray-300 hover:bg-gray-500"
               }`}
             >
               🌐 Servidor Remoto
@@ -146,7 +167,9 @@ export default function WorkerSelector() {
             // Modo Localhost - Solo puerto
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Puerto</label>
+                <label className="block text-xs text-gray-400 mb-1">
+                  Puerto
+                </label>
                 <input
                   type="number"
                   value={newWorkerPort}
@@ -159,7 +182,9 @@ export default function WorkerSelector() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Nombre (opcional)</label>
+                <label className="block text-xs text-gray-400 mb-1">
+                  Nombre (opcional)
+                </label>
                 <input
                   type="text"
                   value={newWorkerName}
@@ -169,14 +194,19 @@ export default function WorkerSelector() {
                 />
               </div>
               <div className="text-xs text-gray-400 bg-gray-800/50 p-2 rounded">
-                📍 Se conectará a: <span className="font-mono text-blue-400">http://localhost:{newWorkerPort || 'XXXX'}</span>
+                📍 Se conectará a:{" "}
+                <span className="font-mono text-blue-400">
+                  http://localhost:{newWorkerPort || "XXXX"}
+                </span>
               </div>
             </div>
           ) : (
             // Modo Remoto - URL completa
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-gray-400 mb-1">URL del Servidor</label>
+                <label className="block text-xs text-gray-400 mb-1">
+                  URL del Servidor
+                </label>
                 <input
                   type="text"
                   value={newWorkerHost}
@@ -190,7 +220,9 @@ export default function WorkerSelector() {
                 </p>
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Nombre del Worker</label>
+                <label className="block text-xs text-gray-400 mb-1">
+                  Nombre del Worker
+                </label>
                 <input
                   type="text"
                   value={newWorkerName}
@@ -222,9 +254,9 @@ export default function WorkerSelector() {
               onClick={() => {
                 setShowAddWorker(false);
                 setUseCustomUrl(false);
-                setNewWorkerPort('');
-                setNewWorkerHost('localhost');
-                setNewWorkerName('');
+                setNewWorkerPort("");
+                setNewWorkerHost("localhost");
+                setNewWorkerName("");
               }}
               className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded font-medium transition-colors"
             >
@@ -235,7 +267,8 @@ export default function WorkerSelector() {
       )}
 
       <div className="mt-3 text-xs text-gray-400">
-        💡 Las solicitudes se enviarán a <span className="font-mono text-gray-200">{selectedWorker.url}</span>
+        💡 Las solicitudes se enviarán a{" "}
+        <span className="font-mono text-gray-200">{selectedWorker.url}</span>
       </div>
     </div>
   );

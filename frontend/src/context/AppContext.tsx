@@ -87,8 +87,8 @@ const defaultWorkers: Worker[] = [
 export function AppProvider({ children }: { children: React.ReactNode }) {
   // Cargar workers de localStorage o usar defaults
   const [workers, setWorkers] = useState<Worker[]>(() => {
-    if (typeof window === 'undefined') return defaultWorkers;
-    const saved = localStorage.getItem('workers');
+    if (typeof window === "undefined") return defaultWorkers;
+    const saved = localStorage.getItem("workers");
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -100,16 +100,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [selectedWorker, setSelectedWorkerState] = useState<Worker>(() => {
-    if (typeof window === 'undefined') return defaultWorkers[0];
-    const saved = localStorage.getItem('selectedWorker');
+    if (typeof window === "undefined") return defaultWorkers[0];
+    const saved = localStorage.getItem("selectedWorker");
     if (saved) {
       try {
         const savedWorker = JSON.parse(saved);
         // Verificar que el worker guardado exista en la lista
-        const savedWorkers = localStorage.getItem('workers');
+        const savedWorkers = localStorage.getItem("workers");
         if (savedWorkers) {
           const workersList = JSON.parse(savedWorkers);
-          const exists = workersList.find((w: Worker) => w.id === savedWorker.id);
+          const exists = workersList.find(
+            (w: Worker) => w.id === savedWorker.id
+          );
           if (exists) return savedWorker;
         }
       } catch {
@@ -222,8 +224,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSelectedWorkerState(worker);
     apiClient.setWorker(worker);
     // Guardar en localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('selectedWorker', JSON.stringify(worker));
+    if (typeof window !== "undefined") {
+      localStorage.setItem("selectedWorker", JSON.stringify(worker));
     }
   };
 
@@ -231,8 +233,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWorkers((prev) => {
       const updated = [...prev, worker];
       // Guardar en localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('workers', JSON.stringify(updated));
+      if (typeof window !== "undefined") {
+        localStorage.setItem("workers", JSON.stringify(updated));
       }
       return updated;
     });
@@ -242,8 +244,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWorkers((prev) => {
       const updated = prev.filter((w) => w.id !== workerId);
       // Guardar en localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('workers', JSON.stringify(updated));
+      if (typeof window !== "undefined") {
+        localStorage.setItem("workers", JSON.stringify(updated));
       }
       return updated;
     });
