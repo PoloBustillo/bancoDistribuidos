@@ -58,7 +58,7 @@ En tu servidor, crea el archivo `.env` en la carpeta `worker`:
 
 ```bash
 # En el servidor
-cd /var/www/banco-distribuido/worker
+cd /home/polo/banco-distribuido/worker
 nano .env
 ```
 
@@ -151,7 +151,7 @@ Si prefieres deployar manualmente:
 ssh usuario@tu-servidor
 
 # 2. Ir al directorio
-cd /var/www/banco-distribuido
+cd /home/polo/banco-distribuido
 
 # 3. Actualizar código
 git pull origin main
@@ -347,9 +347,10 @@ pm2 logs --lines 100
 └──────────────┬──────────────────────┘
                │ SSH
                ▼
+```bash
 ┌─────────────────────────────────────┐
 │         Your Server                 │
-│  /var/www/banco-distribuido         │
+│  /home/polo/banco-distribuido       │
 │                                     │
 │  ┌──────────────────────┐          │
 │  │  PM2 Process Manager │          │

@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuración
-DEPLOY_PATH="/var/www/banco-distribuido"
+DEPLOY_PATH="/home/polo/banco-distribuido"
 REPO_URL="https://github.com/PoloBustillo/bancoDistribuidos.git"
 
 echo -e "${BLUE}🚀 Banco Distribuido - Deployment Script${NC}"

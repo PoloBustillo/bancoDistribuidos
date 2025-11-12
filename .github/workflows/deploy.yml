@@ -8,7 +8,7 @@ on:
 
 env:
   NODE_VERSION: "20"
-  DEPLOY_PATH: "/var/www/banco-distribuido"
+  DEPLOY_PATH: "/home/polo/banco-distribuido"
 
 jobs:
   deploy:
@@ -28,11 +28,14 @@ jobs:
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
             echo "🚀 Iniciando deployment..."
-
+            
+            # Asegurar que Bun esté en el PATH
+            export PATH="$HOME/.bun/bin:$PATH"
+            
             # Crear directorio si no existe
-            mkdir -p ${{ env.DEPLOY_PATH }}
-            cd ${{ env.DEPLOY_PATH }}
-
+            mkdir -p /home/polo/banco-distribuido
+            cd /home/polo/banco-distribuido
+            
             # Clonar o actualizar repositorio
             if [ -d ".git" ]; then
               echo "📦 Actualizando repositorio..."
@@ -41,38 +44,38 @@ jobs:
               git pull origin main
             else
               echo "📦 Clonando repositorio..."
+              # Limpiar directorio si existe pero no es git
+              rm -rf * .* 2>/dev/null || true
               git clone https://github.com/${{ github.repository }} .
             fi
-
+            
             # Verificar que Bun esté instalado
             if ! command -v bun &> /dev/null; then
               echo "⚠️  Bun no encontrado. Instalando..."
               curl -fsSL https://bun.sh/install | bash
               export PATH="$HOME/.bun/bin:$PATH"
             fi
-
+            
             echo "📦 Instalando dependencias..."
-
+            
             # Instalar dependencias del coordinador
             cd coordinador
             bun install
             cd ..
-
+            
             # Instalar dependencias de los workers
             cd worker
             bun install
-
+            
             # Generar Prisma Client
             echo "🔧 Generando Prisma Client..."
             bunx prisma generate --schema=prisma/schema.prisma
-
+            
             # Ejecutar migraciones de base de datos (solo si es necesario)
             echo "🗄️  Ejecutando migraciones..."
             bunx prisma migrate deploy --schema=prisma/schema.prisma || echo "⚠️  Migraciones no aplicadas"
-
-            cd ..
-
-            # Instalar PM2 si no está instalado
+            
+            cd ..            # Instalar PM2 si no está instalado
             if ! command -v pm2 &> /dev/null; then
               echo "📦 Instalando PM2..."
               npm install -g pm2
