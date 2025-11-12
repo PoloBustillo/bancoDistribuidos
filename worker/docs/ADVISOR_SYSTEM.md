@@ -130,7 +130,7 @@ El cliente muestra este código al asesor (verbalmente o en pantalla).
   "exp": 1704460200,
   "iat": 1704458400
 }
-```
+```**
 
 ---
 

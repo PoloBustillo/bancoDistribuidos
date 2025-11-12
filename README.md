@@ -424,6 +424,78 @@ El sistema implementa:
 - **Auditoría**: GET `/api/audit/{accountId}`
 - **Admin**: GET `/api/admin/state`
 
+## 🚀 Deployment
+
+### Deployment Automático con GitHub Actions
+
+El proyecto incluye deployment automático usando **GitHub Actions** y **appleboy/ssh-action**:
+
+1. **Configura los GitHub Secrets** (Settings → Secrets → Actions):
+   - `SSH_HOST`: IP o dominio de tu servidor
+   - `SSH_USERNAME`: Usuario SSH (ej: `root`, `ubuntu`)
+   - `SSH_PRIVATE_KEY`: Tu llave privada SSH completa
+   - `SSH_PORT`: Puerto SSH (opcional, default: 22)
+
+2. **Push a main** para deployment automático:
+   ```bash
+   git add .
+   git commit -m "feat: nueva funcionalidad"
+   git push origin main
+   ```
+
+3. **GitHub Actions** automáticamente:
+   - 📦 Clona/actualiza el código en el servidor
+   - 🔧 Instala dependencias con Bun
+   - 🗄️ Ejecuta migraciones de Prisma
+   - 🚀 Inicia Coordinador (puerto 4000) y 3 Workers (3001, 3002, 3003)
+   - ✅ Verifica health de los servicios
+
+### Deployment Manual
+
+Usa el script incluido:
+
+```bash
+# Dar permisos de ejecución
+chmod +x deploy.sh
+
+# Deployment local (en el servidor)
+./deploy.sh
+
+# Deployment remoto (desde tu máquina)
+./deploy.sh --remote tu-servidor.com root
+```
+
+### Gestión con PM2
+
+```bash
+# Ver todos los procesos
+pm2 list
+
+# Ver logs en tiempo real
+pm2 logs
+
+# Reiniciar servicios
+pm2 restart all
+
+# Monitor en tiempo real
+pm2 monit
+
+# Detener todos
+pm2 stop all
+```
+
+### Arquitectura de Deployment
+
+```
+GitHub Push → GitHub Actions → SSH al Servidor → PM2
+                                                    ├── coordinador:4000
+                                                    ├── worker-3001:3001
+                                                    ├── worker-3002:3002
+                                                    └── worker-3003:3003
+```
+
+📚 **Documentación completa**: Ver [DEPLOYMENT.md](./DEPLOYMENT.md)
+
 ## 🎓 Conceptos Aprendidos
 
 ✅ Sincronización de recursos compartidos  
@@ -432,7 +504,11 @@ El sistema implementa:
 ✅ Auditoría y logging  
 ✅ APIs REST  
 ✅ Desarrollo full-stack  
+✅ **CI/CD con GitHub Actions**  
+✅ **Deployment automatizado con SSH**  
+✅ **Gestión de procesos con PM2**  
 
 ---
 
 **¡Explora los sistemas distribuidos!** 🚀
+
