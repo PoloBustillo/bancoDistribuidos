@@ -52,13 +52,15 @@ httpServer.on("request", (req, res) => {
   }
 });
 
-// Iniciar servidor
-httpServer.listen(PORT, () => {
+// Iniciar servidor - Escuchar en 0.0.0.0 para permitir conexiones externas
+const HOST = process.env.HOST || "0.0.0.0";
+httpServer.listen(PORT, HOST, () => {
   console.log("\n" + "=".repeat(60));
   console.log("🎯 COORDINADOR CENTRAL DE LOCKS");
   console.log("=".repeat(60));
   console.log(`📍 Puerto: ${PORT}`);
-  console.log(`🔌 WebSocket: ws://localhost:${PORT}`);
+  console.log(`🏠 Host: ${HOST}`);
+  console.log(`🔌 WebSocket: ws://${HOST}:${PORT}`);
   console.log(`\n📊 Endpoints HTTP:`);
   console.log(`   GET /api/stats  - Estadísticas de locks`);
   console.log(`   GET /api/health - Estado del servidor`);

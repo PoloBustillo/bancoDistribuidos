@@ -40,12 +40,15 @@ const JWT_SECRET =
 
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://localhost:3002",
-      "http://localhost:3003",
-    ],
+    origin: process.env.CORS_ORIGIN 
+      ? process.env.CORS_ORIGIN.split(',')
+      : [
+          "http://localhost:3000",
+          "http://localhost:3001",
+          "http://localhost:3002",
+          "http://localhost:3003",
+          "*", // Permitir cualquier origen (útil para desarrollo)
+        ],
     credentials: true,
   },
   transports: ["websocket", "polling"],
@@ -218,12 +221,9 @@ bankingEvents.on(EventType.TARJETA_ESTADO_CAMBIADO, (event: BankingEvent) => {
 // Permitir peticiones desde el frontend (Next.js)
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000", // Next.js dev
-      "http://localhost:3001", // Worker 1
-      "http://localhost:3002", // Worker 2
-      "http://localhost:3003", // Worker 3
-    ],
+    origin: process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(',')
+      : "*", // En producción, especificar orígenes permitidos en CORS_ORIGIN
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -909,7 +909,9 @@ async function iniciar() {
   bankingEvents.setWorkerId(WORKER_ID || "worker-unknown");
 
   // Primero iniciar el servidor HTTP para obtener el puerto real
-  const server = httpServer.listen(PORT, async () => {
+  // Escuchar en 0.0.0.0 para permitir conexiones externas
+  const HOST = process.env.HOST || "0.0.0.0";
+  const server = httpServer.listen(ACTUAL_PORT, HOST, async () => {
     // Obtener el puerto real asignado
     const address = server.address();
     ACTUAL_PORT =
