@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useApp } from "@/context/AppContext";
 
 interface VerificationCodeResponse {
   codigo: string;
@@ -9,6 +10,7 @@ interface VerificationCodeResponse {
 }
 
 export function VerificationCode() {
+  const { selectedWorker } = useApp();
   const [codigo, setCodigo] = useState<string | null>(null);
   const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -46,7 +48,7 @@ export function VerificationCode() {
       }
 
       const response = await fetch(
-        "http://localhost:3001/api/client/verification-code",
+        `${selectedWorker.url}/api/client/verification-code`,
         {
           method: "POST",
           headers: {
