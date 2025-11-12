@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# 🔐 Script para configurar SSL automáticamente con Caddy
+# 🔐 Script SIMPLIFICADO para configurar SSL con Caddy
 # Dominio: psic-danieladiaz.com
-# Puertos: 3001, 3002, 3003, 4000
+# Instala Caddy directamente desde binario (sin problemas de repos)
 
 set -e
 
@@ -20,49 +20,72 @@ log_error() { echo -e "${RED}❌ $1${NC}"; }
 
 DOMAIN="psic-danieladiaz.com"
 
-echo -e "${BLUE}🔐 Configurando SSL con Caddy para Banco Distribuido${NC}"
+echo -e "${BLUE}🔐 Configurando SSL con Caddy (Instalación Simplificada)${NC}"
 echo ""
 
-# Verificar que se está ejecutando como root
+# Verificar root
 if [[ $EUID -ne 0 ]]; then
    log_error "Este script debe ejecutarse como root (usa sudo)"
    exit 1
 fi
 
-# Detectar versión de Ubuntu y arreglar repositorios EOL
-UBUNTU_VERSION=$(lsb_release -cs 2>/dev/null || echo "unknown")
-log_info "Detectada versión de Ubuntu: $UBUNTU_VERSION"
-
-if [[ "$UBUNTU_VERSION" == "kinetic" ]] || [[ "$UBUNTU_VERSION" == "impish" ]] || [[ "$UBUNTU_VERSION" == "hirsute" ]]; then
-    log_warning "Ubuntu $UBUNTU_VERSION ha llegado a End of Life (EOL)"
-    log_info "Arreglando repositorios..."
-    
-    # Backup de sources.list
-    cp /etc/apt/sources.list /etc/apt/sources.list.backup.$(date +%s) 2>/dev/null || true
-    
-    # Actualizar a old-releases
-    sed -i -e 's/http:\/\/archive.ubuntu.com\/ubuntu\//http:\/\/old-releases.ubuntu.com\/ubuntu\//g' /etc/apt/sources.list
-    sed -i -e 's/http:\/\/security.ubuntu.com\/ubuntu\//http:\/\/old-releases.ubuntu.com\/ubuntu\//g' /etc/apt/sources.list
-    sed -i -e 's/http:\/\/us.archive.ubuntu.com\/ubuntu\//http:\/\/old-releases.ubuntu.com\/ubuntu\//g' /etc/apt/sources.list
-    
-    log_success "Repositorios actualizados a old-releases"
-fi
-
-# 1. Instalar Caddy
-log_info "Instalando Caddy..."
+# 1. Instalar Caddy desde binario oficial
+log_info "Instalando Caddy desde binario oficial..."
 if ! command -v caddy &> /dev/null; then
-    # Actualizar repositorios (ignorar errores)
-    apt update 2>&1 | grep -v "kinetic-security" || true
+    # Detectar arquitectura
+    ARCH=$(uname -m)
+    if [[ "$ARCH" == "x86_64" ]]; then
+        CADDY_ARCH="amd64"
+    elif [[ "$ARCH" == "aarch64" ]] || [[ "$ARCH" == "arm64" ]]; then
+        CADDY_ARCH="arm64"
+    else
+        log_error "Arquitectura no soportada: $ARCH"
+        exit 1
+    fi
     
-    apt install -y debian-keyring debian-archive-keyring apt-transport-https curl 2>&1 | grep -v "kinetic-security" || true
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+    # Descargar Caddy
+    CADDY_VERSION="2.7.6"
+    cd /tmp
+    wget -O caddy.tar.gz "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_${CADDY_ARCH}.tar.gz"
+    tar -xzf caddy.tar.gz caddy
+    mv caddy /usr/bin/caddy
+    chmod +x /usr/bin/caddy
     
-    # Actualizar solo repositorios necesarios
-    apt update -o Dir::Etc::sourcelist="sources.list.d/caddy-stable.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0" 2>&1 | grep -v "kinetic-security" || true
+    # Crear usuario caddy
+    id -u caddy &>/dev/null || useradd -r -d /var/lib/caddy -s /bin/false caddy
     
-    apt install -y caddy
-    log_success "Caddy instalado"
+    # Crear directorios
+    mkdir -p /etc/caddy
+    mkdir -p /var/lib/caddy
+    chown -R caddy:caddy /var/lib/caddy
+    
+    # Crear servicio systemd
+    cat > /etc/systemd/system/caddy.service << 'EOF'
+[Unit]
+Description=Caddy
+Documentation=https://caddyserver.com/docs/
+After=network.target network-online.target
+Requires=network-online.target
+
+[Service]
+Type=notify
+User=caddy
+Group=caddy
+ExecStart=/usr/bin/caddy run --environ --config /etc/caddy/Caddyfile
+ExecReload=/usr/bin/caddy reload --config /etc/caddy/Caddyfile --force
+TimeoutStopSec=5s
+LimitNOFILE=1048576
+LimitNPROC=512
+PrivateTmp=true
+ProtectSystem=full
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    systemctl daemon-reload
+    log_success "Caddy instalado desde binario"
 else
     log_success "Caddy ya está instalado"
 fi
@@ -71,10 +94,11 @@ fi
 log_info "Verificando configuración DNS..."
 echo ""
 log_warning "IMPORTANTE: Asegúrate de que estos subdominios apunten a tu servidor:"
-echo "  api1.${DOMAIN} → $(curl -s ifconfig.me)"
-echo "  api2.${DOMAIN} → $(curl -s ifconfig.me)"
-echo "  api3.${DOMAIN} → $(curl -s ifconfig.me)"
-echo "  coord.${DOMAIN} → $(curl -s ifconfig.me)"
+SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s icanhazip.com 2>/dev/null || echo "Tu IP")
+echo "  api1.${DOMAIN} → $SERVER_IP"
+echo "  api2.${DOMAIN} → $SERVER_IP"
+echo "  api3.${DOMAIN} → $SERVER_IP"
+echo "  coord.${DOMAIN} → $SERVER_IP"
 echo ""
 read -p "¿Ya configuraste los registros DNS? (s/n): " dns_ready
 
@@ -84,16 +108,16 @@ if [[ ! "$dns_ready" =~ ^[SsYy]$ ]]; then
     echo "En tu proveedor de DNS (ej: Cloudflare, GoDaddy, etc):"
     echo "Tipo  | Nombre | Valor"
     echo "------|--------|-------"
-    echo "A     | api1   | $(curl -s ifconfig.me)"
-    echo "A     | api2   | $(curl -s ifconfig.me)"
-    echo "A     | api3   | $(curl -s ifconfig.me)"
-    echo "A     | coord  | $(curl -s ifconfig.me)"
+    echo "A     | api1   | $SERVER_IP"
+    echo "A     | api2   | $SERVER_IP"
+    echo "A     | api3   | $SERVER_IP"
+    echo "A     | coord  | $SERVER_IP"
     echo ""
     log_info "Después de configurar DNS, espera 5-10 minutos y ejecuta este script nuevamente"
     exit 1
 fi
 
-# 3. Backup de configuración existente si existe
+# 3. Backup de configuración existente
 if [ -f /etc/caddy/Caddyfile ]; then
     log_info "Haciendo backup de Caddyfile existente..."
     cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.backup.$(date +%s)
@@ -108,14 +132,12 @@ cat > /etc/caddy/Caddyfile << EOF
 # Worker 1 - Puerto 3001
 api1.${DOMAIN} {
     reverse_proxy localhost:3001 {
-        # Configuración para WebSocket
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
         header_up X-Forwarded-Proto {scheme}
     }
     
-    # Logs
     log {
         output file /var/log/caddy/api1.log
     }
@@ -163,7 +185,7 @@ coord.${DOMAIN} {
     }
 }
 
-# Dominio principal - Redirigir a documentación o frontend
+# Dominio principal
 ${DOMAIN} {
     respond "Banco Distribuido API. Usa: api1.${DOMAIN}, api2.${DOMAIN}, api3.${DOMAIN}, coord.${DOMAIN}"
 }
@@ -177,7 +199,7 @@ log_success "Configuración creada"
 
 # 5. Crear directorio de logs
 mkdir -p /var/log/caddy
-chown caddy:caddy /var/log/caddy
+chown -R caddy:caddy /var/log/caddy
 
 # 6. Validar configuración
 log_info "Validando configuración..."
@@ -188,24 +210,24 @@ else
     exit 1
 fi
 
-# 7. Abrir puertos en firewall
+# 7. Configurar firewall
 log_info "Configurando firewall..."
 if command -v ufw &> /dev/null; then
-    ufw allow 80/tcp
-    ufw allow 443/tcp
-    ufw allow 3001/tcp
-    ufw allow 3002/tcp
-    ufw allow 3003/tcp
-    ufw allow 4000/tcp
+    ufw allow 80/tcp 2>/dev/null || true
+    ufw allow 443/tcp 2>/dev/null || true
+    ufw allow 3001/tcp 2>/dev/null || true
+    ufw allow 3002/tcp 2>/dev/null || true
+    ufw allow 3003/tcp 2>/dev/null || true
+    ufw allow 4000/tcp 2>/dev/null || true
     log_success "Puertos abiertos en UFW"
 fi
 
-# 8. Reiniciar Caddy
-log_info "Reiniciando Caddy..."
-systemctl restart caddy
+# 8. Iniciar Caddy
+log_info "Iniciando Caddy..."
 systemctl enable caddy
+systemctl restart caddy
 
-# Esperar a que Caddy inicie
+# Esperar a que inicie
 sleep 3
 
 # 9. Verificar estado
@@ -217,10 +239,10 @@ else
     exit 1
 fi
 
-# 10. Verificar certificados SSL
+# 10. Esperar certificados SSL
 log_info "Esperando a que Caddy obtenga certificados SSL..."
 echo "Esto puede tardar 30-60 segundos..."
-sleep 10
+sleep 15
 
 echo ""
 log_success "🎉 ¡Configuración completada!"
@@ -240,8 +262,13 @@ log_info "Ver logs de Caddy:"
 echo "  journalctl -u caddy -f"
 echo "  tail -f /var/log/caddy/api1.log"
 echo ""
-log_warning "IMPORTANTE: Actualiza tu frontend en Vercel:"
-echo "  Variables de entorno:"
+log_warning "SIGUIENTE PASO: Configurar CORS en el backend"
+echo "  cd /home/polo/banco-distribuido"
+echo "  nano .env"
+echo "  Agrega: CORS_ORIGIN=https://banco-distribuidos.vercel.app"
+echo "  pm2 restart all"
+echo ""
+log_warning "ACTUALIZA Vercel Environment Variables:"
 echo "  NEXT_PUBLIC_DEFAULT_WORKER_URL=https://api1.${DOMAIN}"
 echo ""
-log_info "Certificados SSL se renovarán automáticamente cada 60 días"
+log_info "Los certificados SSL se renovarán automáticamente cada 60 días"

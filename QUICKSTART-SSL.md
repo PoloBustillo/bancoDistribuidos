@@ -13,11 +13,12 @@ Ve a tu proveedor de DNS y crea estos registros A:
 
 ⏱️ **Espera 5-10 minutos** para que DNS se propague.
 
-## Paso 2: Copiar Scripts al Servidor
+## Paso 2: Copiar Script al Servidor
 
 ```bash
 # Desde tu máquina local, en el directorio del proyecto
-scp setup-ssl-caddy.sh polo@psic-danieladiaz.com:/home/polo/
+# USA ESTE (sin problemas de repositorios EOL):
+scp setup-ssl-caddy-simple.sh polo@psic-danieladiaz.com:/home/polo/
 ```
 
 ## Paso 3: Ejecutar Script en el Servidor
@@ -26,8 +27,8 @@ scp setup-ssl-caddy.sh polo@psic-danieladiaz.com:/home/polo/
 # SSH al servidor
 ssh polo@psic-danieladiaz.com
 
-# Ejecutar script (Caddy recomendado)
-sudo bash /home/polo/setup-ssl-caddy.sh
+# Ejecutar script simplificado (instala Caddy desde binario oficial)
+sudo bash /home/polo/setup-ssl-caddy-simple.sh
 ```
 
 ## Paso 4: Verificar
