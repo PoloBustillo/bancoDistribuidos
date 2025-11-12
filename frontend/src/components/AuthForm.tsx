@@ -36,7 +36,7 @@ export default function AuthForm() {
   };
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 sm:p-6 max-w-md w-full mx-auto">
+    <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 max-w-md mx-auto">
       <h2 className="text-2xl font-bold text-white mb-2">
         {isLogin ? '🔐 Iniciar Sesión' : '📝 Registrarse'}
       </h2>
