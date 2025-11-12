@@ -64,19 +64,21 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto min-w-0">
             <button
               onClick={() => setShowVerificationModal(true)}
-              className="w-full sm:w-auto px-4 py-2 bg-purple-500/20 border border-purple-500 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-colors flex items-center justify-center gap-2"
+              className="w-full sm:w-auto min-w-0 px-4 py-2 bg-purple-500/20 border border-purple-500 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+              aria-label="Atención con Asesor"
             >
               <span>👤</span>
               <span className="truncate">Atención con Asesor</span>
             </button>
             <button
               onClick={logout}
-              className="w-full sm:w-auto px-4 py-2 bg-red-500/20 border border-red-500 text-red-500 rounded-lg hover:bg-red-500/30 transition-colors text-center"
+              className="w-full sm:w-auto min-w-0 px-4 py-2 bg-red-500/20 border border-red-500 text-red-500 rounded-lg hover:bg-red-500/30 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+              aria-label="Cerrar Sesión"
             >
-              Cerrar Sesión
+              <span className="truncate">Cerrar Sesión</span>
             </button>
           </div>
         </div>
