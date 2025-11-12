@@ -40,8 +40,8 @@ const JWT_SECRET =
 
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: process.env.CORS_ORIGIN 
-      ? process.env.CORS_ORIGIN.split(',')
+    origin: process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(",")
       : [
           "http://localhost:3000",
           "http://localhost:3001",
@@ -221,9 +221,7 @@ bankingEvents.on(EventType.TARJETA_ESTADO_CAMBIADO, (event: BankingEvent) => {
 // Permitir peticiones desde el frontend (Next.js)
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN
-      ? process.env.CORS_ORIGIN.split(',')
-      : "*", // En producción, especificar orígenes permitidos en CORS_ORIGIN
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : "*", // En producción, especificar orígenes permitidos en CORS_ORIGIN
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
