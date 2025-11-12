@@ -85,10 +85,40 @@ const defaultWorkers: Worker[] = [
 ];
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [workers, setWorkers] = useState<Worker[]>(defaultWorkers);
-  const [selectedWorker, setSelectedWorkerState] = useState<Worker>(
-    defaultWorkers[0]
-  );
+  // Cargar workers de localStorage o usar defaults
+  const [workers, setWorkers] = useState<Worker[]>(() => {
+    if (typeof window === 'undefined') return defaultWorkers;
+    const saved = localStorage.getItem('workers');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return defaultWorkers;
+      }
+    }
+    return defaultWorkers;
+  });
+
+  const [selectedWorker, setSelectedWorkerState] = useState<Worker>(() => {
+    if (typeof window === 'undefined') return defaultWorkers[0];
+    const saved = localStorage.getItem('selectedWorker');
+    if (saved) {
+      try {
+        const savedWorker = JSON.parse(saved);
+        // Verificar que el worker guardado exista en la lista
+        const savedWorkers = localStorage.getItem('workers');
+        if (savedWorkers) {
+          const workersList = JSON.parse(savedWorkers);
+          const exists = workersList.find((w: Worker) => w.id === savedWorker.id);
+          if (exists) return savedWorker;
+        }
+      } catch {
+        // Si hay error, usar default
+      }
+    }
+    return defaultWorkers[0];
+  });
+
   const [user, setUser] = useState<User | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
@@ -191,14 +221,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setSelectedWorker = (worker: Worker) => {
     setSelectedWorkerState(worker);
     apiClient.setWorker(worker);
+    // Guardar en localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selectedWorker', JSON.stringify(worker));
+    }
   };
 
   const addWorker = (worker: Worker) => {
-    setWorkers((prev) => [...prev, worker]);
+    setWorkers((prev) => {
+      const updated = [...prev, worker];
+      // Guardar en localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('workers', JSON.stringify(updated));
+      }
+      return updated;
+    });
   };
 
   const removeWorker = (workerId: string) => {
-    setWorkers((prev) => prev.filter((w) => w.id !== workerId));
+    setWorkers((prev) => {
+      const updated = prev.filter((w) => w.id !== workerId);
+      // Guardar en localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('workers', JSON.stringify(updated));
+      }
+      return updated;
+    });
     if (selectedWorker.id === workerId && workers.length > 1) {
       const remainingWorkers = workers.filter((w) => w.id !== workerId);
       setSelectedWorker(remainingWorkers[0]);

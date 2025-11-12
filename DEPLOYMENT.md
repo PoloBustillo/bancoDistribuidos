@@ -276,6 +276,33 @@ sudo certbot --nginx -d coordinador.tudominio.com -d worker1.tudominio.com -d wo
 
 ## 🔍 Troubleshooting
 
+### Puerto en uso - Error "port 3001 in use"
+
+Si ves errores como `Failed to start server. Is port 3001 in use?`:
+
+```bash
+# Opción 1: Usar el script automático
+cd /home/polo/banco-distribuido
+chmod +x restart-services.sh
+./restart-services.sh
+
+# Opción 2: Manual - Liberar puertos específicos
+# Ver qué proceso está usando el puerto
+sudo lsof -i :3001
+
+# Matar el proceso (reemplaza PID con el número que viste)
+kill -9 PID
+
+# O liberar todos los puertos de una vez
+pm2 delete all
+fuser -k 4000/tcp 3001/tcp 3002/tcp 3003/tcp
+
+# Esperar y reiniciar
+sleep 3
+pm2 start ecosystem.config.json
+pm2 save
+```
+
 ### Los workers no se conectan al coordinador
 
 ```bash
@@ -290,7 +317,7 @@ pm2 env worker-3001 | grep COORDINADOR_URL
 
 ```bash
 # Verificar conexión a PostgreSQL
-cd /var/www/banco-distribuido/worker
+cd /home/polo/banco-distribuido/worker
 bunx prisma db push
 
 # Ver logs de errores

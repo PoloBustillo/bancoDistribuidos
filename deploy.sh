@@ -133,12 +133,27 @@ cd ..
 # Crear directorio de logs
 mkdir -p logs
 
-# Detener servicios existentes
-log_info "Deteniendo servicios existentes..."
+# Detener servicios existentes y liberar puertos
+log_info "Deteniendo servicios existentes y liberando puertos..."
 pm2 delete all 2>/dev/null || log_info "No había servicios previos"
 
+# Esperar a que los procesos terminen
+sleep 2
+
+# Liberar puertos por si acaso quedaron ocupados
+log_info "Verificando que los puertos estén libres..."
+for port in 4000 3001 3002 3003; do
+    if lsof -ti:$port >/dev/null 2>&1; then
+        log_warning "Liberando puerto $port..."
+        fuser -k ${port}/tcp 2>/dev/null || true
+    fi
+done
+
+# Esperar un momento
+sleep 2
+
 # Iniciar servicios usando ecosystem.config.json
-log_info "Iniciando servicios..."
+log_info "Iniciando servicios con PM2..."
 pm2 start ecosystem.config.json
 
 # Guardar configuración de PM2

@@ -9,31 +9,63 @@ export default function WorkerSelector() {
   const { selectedWorker, setSelectedWorker, workers, addWorker, removeWorker } = useApp();
   const [showAddWorker, setShowAddWorker] = useState(false);
   const [newWorkerPort, setNewWorkerPort] = useState('');
+  const [newWorkerHost, setNewWorkerHost] = useState('localhost');
+  const [newWorkerName, setNewWorkerName] = useState('');
+  const [useCustomUrl, setUseCustomUrl] = useState(false);
 
   const handleAddWorker = (e: React.FormEvent) => {
     e.preventDefault();
-    const port = parseInt(newWorkerPort);
-    if (port < 1024 || port > 65535) {
-      alert('El puerto debe estar entre 1024 y 65535');
-      return;
+    
+    let workerUrl: string;
+    let workerId: string;
+    let workerName: string;
+
+    if (useCustomUrl) {
+      // Modo URL personalizada
+      const urlInput = newWorkerHost.trim();
+      
+      // Validar que sea una URL válida
+      try {
+        const url = new URL(urlInput.startsWith('http') ? urlInput : `http://${urlInput}`);
+        workerUrl = url.origin;
+        workerId = `worker-${url.hostname}-${url.port || '80'}`;
+        workerName = newWorkerName.trim() || `${url.hostname}:${url.port || '80'}`;
+      } catch {
+        alert('URL inválida. Usa el formato: http://host:puerto o host:puerto');
+        return;
+      }
+    } else {
+      // Modo puerto localhost
+      const port = parseInt(newWorkerPort);
+      if (port < 1024 || port > 65535) {
+        alert('El puerto debe estar entre 1024 y 65535');
+        return;
+      }
+      
+      workerId = `worker-${port}`;
+      workerUrl = `http://localhost:${port}`;
+      workerName = newWorkerName.trim() || `Worker ${port}`;
     }
 
-    const workerId = `worker-${port}`;
-    if (workers.some(w => w.id === workerId)) {
-      alert('Ya existe un worker en ese puerto');
+    // Verificar que no exista ya
+    if (workers.some(w => w.id === workerId || w.url === workerUrl)) {
+      alert('Ya existe un worker con ese ID o URL');
       return;
     }
 
     const newWorker = {
       id: workerId,
-      name: `Worker ${port}`,
-      url: `http://localhost:${port}`,
+      name: workerName,
+      url: workerUrl,
       color: workerColors[workers.length % workerColors.length],
     };
 
     addWorker(newWorker);
     setNewWorkerPort('');
+    setNewWorkerHost('localhost');
+    setNewWorkerName('');
     setShowAddWorker(false);
+    setUseCustomUrl(false);
   };
 
   return (
@@ -84,30 +116,121 @@ export default function WorkerSelector() {
       </div>
 
       {showAddWorker && (
-        <form onSubmit={handleAddWorker} className="flex gap-2 p-3 bg-gray-700/50 rounded-lg">
-          <input
-            type="number"
-            value={newWorkerPort}
-            onChange={(e) => setNewWorkerPort(e.target.value)}
-            placeholder="Puerto (ej: 3003)"
-            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
-            required
-            min="1024"
-            max="65535"
-          />
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm transition-colors"
-          >
-            Agregar
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowAddWorker(false)}
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded text-sm transition-colors"
-          >
-            Cancelar
-          </button>
+        <form onSubmit={handleAddWorker} className="p-4 bg-gray-700/50 rounded-lg space-y-3">
+          <div className="flex items-center gap-3 mb-3">
+            <button
+              type="button"
+              onClick={() => setUseCustomUrl(false)}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                !useCustomUrl
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+              }`}
+            >
+              🏠 Localhost
+            </button>
+            <button
+              type="button"
+              onClick={() => setUseCustomUrl(true)}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                useCustomUrl
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+              }`}
+            >
+              🌐 Servidor Remoto
+            </button>
+          </div>
+
+          {!useCustomUrl ? (
+            // Modo Localhost - Solo puerto
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Puerto</label>
+                <input
+                  type="number"
+                  value={newWorkerPort}
+                  onChange={(e) => setNewWorkerPort(e.target.value)}
+                  placeholder="3001, 3002, 3003..."
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+                  required
+                  min="1024"
+                  max="65535"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Nombre (opcional)</label>
+                <input
+                  type="text"
+                  value={newWorkerName}
+                  onChange={(e) => setNewWorkerName(e.target.value)}
+                  placeholder="Ej: Worker Principal"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="text-xs text-gray-400 bg-gray-800/50 p-2 rounded">
+                📍 Se conectará a: <span className="font-mono text-blue-400">http://localhost:{newWorkerPort || 'XXXX'}</span>
+              </div>
+            </div>
+          ) : (
+            // Modo Remoto - URL completa
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">URL del Servidor</label>
+                <input
+                  type="text"
+                  value={newWorkerHost}
+                  onChange={(e) => setNewWorkerHost(e.target.value)}
+                  placeholder="http://146.190.119.145:3001 o servidor.com:3001"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500 font-mono"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Puedes usar IP, dominio, con o sin http://
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Nombre del Worker</label>
+                <input
+                  type="text"
+                  value={newWorkerName}
+                  onChange={(e) => setNewWorkerName(e.target.value)}
+                  placeholder="Ej: Worker Producción"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="text-xs text-gray-400 bg-gray-800/50 p-2 rounded">
+                💡 <strong>Ejemplos válidos:</strong>
+                <ul className="mt-1 ml-4 space-y-1 font-mono text-blue-400">
+                  <li>• http://146.190.119.145:3001</li>
+                  <li>• worker1.midominio.com:3001</li>
+                  <li>• 192.168.1.100:3001</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded font-medium transition-colors"
+            >
+              ✅ Agregar Worker
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddWorker(false);
+                setUseCustomUrl(false);
+                setNewWorkerPort('');
+                setNewWorkerHost('localhost');
+                setNewWorkerName('');
+              }}
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded font-medium transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
         </form>
       )}
 
