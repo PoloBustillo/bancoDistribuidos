@@ -46,7 +46,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* User Info */}
       <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-        <div className="flex justify-between items-start">
+  <div className="flex flex-col md:flex-row justify-between items-start gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-4">
               <div>
@@ -64,17 +64,17 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <button
               onClick={() => setShowVerificationModal(true)}
-              className="px-4 py-2 bg-purple-500/20 border border-purple-500 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-colors flex items-center gap-2"
+              className="w-full sm:w-auto px-4 py-2 bg-purple-500/20 border border-purple-500 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-colors flex items-center justify-center gap-2"
             >
               <span>👤</span>
-              <span>Atención con Asesor</span>
+              <span className="truncate">Atención con Asesor</span>
             </button>
             <button
               onClick={logout}
-              className="px-4 py-2 bg-red-500/20 border border-red-500 text-red-500 rounded-lg hover:bg-red-500/30 transition-colors"
+              className="w-full sm:w-auto px-4 py-2 bg-red-500/20 border border-red-500 text-red-500 rounded-lg hover:bg-red-500/30 transition-colors text-center"
             >
               Cerrar Sesión
             </button>
