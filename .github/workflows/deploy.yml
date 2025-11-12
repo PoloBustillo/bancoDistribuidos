@@ -7,14 +7,14 @@ on:
   workflow_dispatch: # Permite ejecutar manualmente
 
 env:
-  NODE_VERSION: '20'
-  DEPLOY_PATH: '/var/www/banco-distribuido'
+  NODE_VERSION: "20"
+  DEPLOY_PATH: "/var/www/banco-distribuido"
 
 jobs:
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,11 +28,11 @@ jobs:
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
             echo "🚀 Iniciando deployment..."
-            
+
             # Crear directorio si no existe
             mkdir -p ${{ env.DEPLOY_PATH }}
             cd ${{ env.DEPLOY_PATH }}
-            
+
             # Clonar o actualizar repositorio
             if [ -d ".git" ]; then
               echo "📦 Actualizando repositorio..."
@@ -43,71 +43,71 @@ jobs:
               echo "📦 Clonando repositorio..."
               git clone https://github.com/${{ github.repository }} .
             fi
-            
+
             # Verificar que Bun esté instalado
             if ! command -v bun &> /dev/null; then
               echo "⚠️  Bun no encontrado. Instalando..."
               curl -fsSL https://bun.sh/install | bash
               export PATH="$HOME/.bun/bin:$PATH"
             fi
-            
+
             echo "📦 Instalando dependencias..."
-            
+
             # Instalar dependencias del coordinador
             cd coordinador
             bun install
             cd ..
-            
+
             # Instalar dependencias de los workers
             cd worker
             bun install
-            
+
             # Generar Prisma Client
             echo "🔧 Generando Prisma Client..."
             bunx prisma generate --schema=prisma/schema.prisma
-            
+
             # Ejecutar migraciones de base de datos (solo si es necesario)
             echo "🗄️  Ejecutando migraciones..."
             bunx prisma migrate deploy --schema=prisma/schema.prisma || echo "⚠️  Migraciones no aplicadas"
-            
+
             cd ..
-            
+
             # Instalar PM2 si no está instalado
             if ! command -v pm2 &> /dev/null; then
               echo "📦 Instalando PM2..."
               npm install -g pm2
             fi
-            
+
             echo "🛑 Deteniendo servicios existentes..."
             pm2 delete coordinador worker-3001 worker-3002 worker-3003 2>/dev/null || true
-            
+
             echo "🚀 Iniciando servicios..."
-            
+
             # Iniciar Coordinador en puerto 4000
             cd coordinador
             PORT=4000 pm2 start bun --name "coordinador" -- run start
             cd ..
-            
+
             # Esperar a que el coordinador esté listo
             sleep 3
-            
+
             # Iniciar Worker 1 en puerto 3001
             cd worker
             PORT=3001 COORDINADOR_URL=http://localhost:4000 pm2 start bun --name "worker-3001" -- run start
-            
+
             # Iniciar Worker 2 en puerto 3002
             PORT=3002 COORDINADOR_URL=http://localhost:4000 pm2 start bun --name "worker-3002" -- run start
-            
+
             # Iniciar Worker 3 en puerto 3003
             PORT=3003 COORDINADOR_URL=http://localhost:4000 pm2 start bun --name "worker-3003" -- run start
             cd ..
-            
+
             # Guardar configuración de PM2
             pm2 save
-            
+
             # Configurar PM2 para iniciar al reiniciar el servidor
             pm2 startup systemd -u $USER --hp $HOME 2>/dev/null || true
-            
+
             echo "✅ Deployment completado!"
             echo ""
             echo "📊 Estado de los servicios:"
@@ -129,7 +129,7 @@ jobs:
           script: |
             echo "🏥 Verificando salud de los servicios..."
             sleep 5
-            
+
             # Verificar Workers
             for port in 3001 3002 3003; do
               if curl -f http://localhost:$port/api/health > /dev/null 2>&1; then
@@ -138,7 +138,7 @@ jobs:
                 echo "❌ Worker en puerto $port no responde"
               fi
             done
-            
+
             echo ""
             echo "📊 Logs recientes de PM2:"
             pm2 logs --lines 10 --nostream
