@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useApp } from '@/context/AppContext';
-import WorkerSelector from '@/components/WorkerSelector';
-import AuthForm from '@/components/AuthForm';
-import Dashboard from '@/components/Dashboard';
+import { useApp } from "@/context/AppContext";
+import WorkerSelector from "@/components/WorkerSelector";
+import AuthForm from "@/components/AuthForm";
+import Dashboard from "@/components/Dashboard";
 
 export default function Home() {
   const { isAuthenticated } = useApp();
@@ -16,9 +16,6 @@ export default function Home() {
           <h1 className="text-4xl font-bold mb-2">
             🏦 Sistema Bancario Distribuido
           </h1>
-          <p className="text-gray-400">
-            Demostración educativa de conceptos de sistemas distribuidos: recursos compartidos, locks y coordinación multi-worker
-          </p>
         </header>
 
         {/* Worker Selector - Always visible */}
@@ -31,9 +28,9 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="mt-12 pt-8 border-t border-gray-800 text-center text-gray-500 text-sm">
-          <p>💡 Este es un proyecto educativo que demuestra conceptos de sistemas distribuidos</p>
           <p className="mt-2">
-            Conceptos: Cuentas Compartidas (locks distribuidos) • Tarjetas Individuales (sin locks) • Control de Acceso Basado en Roles
+            Conceptos: Cuentas Compartidas (locks distribuidos) • Tarjetas
+            Individuales (sin locks) • Control de Acceso Basado en Roles
           </p>
         </footer>
       </div>
