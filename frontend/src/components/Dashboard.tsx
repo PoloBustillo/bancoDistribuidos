@@ -4,12 +4,14 @@ import { useApp } from "@/context/AppContext";
 import AccountCard from "./AccountCard";
 import BankingOperations from "./BankingOperations";
 import ConnectionStatus from "./ConnectionStatus";
+import { VerificationModal } from "./VerificationModal";
 import { useState } from "react";
 import { apiClient } from "@/lib/api";
 
 export default function Dashboard() {
   const { user, accounts, cards, logout, refreshUserData } = useApp();
   const [creatingAccount, setCreatingAccount] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [accountType, setAccountType] = useState<
     "CHEQUES" | "DEBITO" | "CREDITO"
   >("CHEQUES");
@@ -62,12 +64,21 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          <button
-            onClick={logout}
-            className="px-4 py-2 bg-red-500/20 border border-red-500 text-red-500 rounded-lg hover:bg-red-500/30 transition-colors"
-          >
-            Cerrar Sesión
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowVerificationModal(true)}
+              className="px-4 py-2 bg-purple-500/20 border border-purple-500 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-colors flex items-center gap-2"
+            >
+              <span>👤</span>
+              <span>Atención con Asesor</span>
+            </button>
+            <button
+              onClick={logout}
+              className="px-4 py-2 bg-red-500/20 border border-red-500 text-red-500 rounded-lg hover:bg-red-500/30 transition-colors"
+            >
+              Cerrar Sesión
+            </button>
+          </div>
         </div>
       </div>
 
@@ -140,6 +151,12 @@ export default function Dashboard() {
 
       {/* Banking Operations */}
       <BankingOperations />
+
+      {/* Verification Modal */}
+      <VerificationModal
+        isOpen={showVerificationModal}
+        onClose={() => setShowVerificationModal(false)}
+      />
     </div>
   );
 }

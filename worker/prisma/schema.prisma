@@ -55,6 +55,9 @@ model Usuario {
 
     sesiones Sesion[]
 
+    // 🎓 RELACIÓN: Usuario → Códigos de verificación para asesores
+    verificationCodes VerificationCode[]
+
     @@map("usuarios")
 }
 
@@ -175,4 +178,103 @@ model Tarjeta {
     @@index([cuentaId])
     @@index([numeroTarjeta])
     @@map("tarjetas")
+}
+
+// ========================================
+// 🎓 MODELO: Asesor (Agente Bancario)
+// ========================================
+// Representa a los asesores/agentes bancarios que pueden
+// acceder a información de clientes tras verificación.
+// Los asesores están pre-autenticados y solo necesitan
+// verificar al cliente con últimos dígitos + código temporal.
+// ========================================
+model Asesor {
+    id        String   @id @default(uuid())
+    nombre    String
+    email     String   @unique
+    codigo    String   @unique // Código de empleado
+    activo    Boolean  @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    sesiones  AsesorSesion[]
+    auditLogs AdvisorAuditLog[]
+
+    @@map("asesores")
+}
+
+// ========================================
+// 🎓 MODELO: VerificationCode
+// ========================================
+// Códigos temporales generados por el cliente para
+// que el asesor pueda acceder a su información.
+// El cliente genera el código en su app y se lo
+// proporciona verbalmente al asesor.
+// ========================================
+model VerificationCode {
+    id        String   @id @default(uuid())
+    usuarioId String
+    codeHash  String // Hash bcrypt del código (6 dígitos)
+    purpose   String   @default("ADVISOR_ACCESS")
+    expiresAt DateTime
+    usado     Boolean  @default(false)
+    createdAt DateTime @default(now())
+
+    usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+    @@index([usuarioId])
+    @@index([expiresAt])
+    @@map("verification_codes")
+}
+
+// ========================================
+// 🎓 MODELO: AsesorSesion
+// ========================================
+// Sesiones de asesores con alcance limitado a clientes específicos.
+// TTL corto (5-30 min) y scope restringido (solo lectura).
+// No invalidan las sesiones de usuarios.
+// ========================================
+model AsesorSesion {
+    id                    String   @id @default(uuid())
+    asesorId              String
+    jti                   String   @unique // JWT ID
+    impersonatedUsuarioId String // Cliente que el asesor está atendiendo
+    scope                 String   @default("advisor:view") // Permisos separados por comas
+    issuedAt              DateTime @default(now())
+    expiresAt             DateTime
+    ip                    String?
+    userAgent             String?
+    activo                Boolean  @default(true)
+
+    asesor Asesor @relation(fields: [asesorId], references: [id], onDelete: Cascade)
+
+    @@index([asesorId])
+    @@index([impersonatedUsuarioId])
+    @@index([expiresAt])
+    @@map("asesor_sesiones")
+}
+
+// ========================================
+// 🎓 MODELO: AdvisorAuditLog
+// ========================================
+// Registro de auditoría de todas las acciones realizadas
+// por asesores. Crítico para compliance y seguridad.
+// ========================================
+model AdvisorAuditLog {
+    id        String   @id @default(uuid())
+    asesorId  String?
+    usuarioId String? // Cliente afectado
+    operacion String // Ej: "VIEW_BALANCE", "VIEW_TRANSACTIONS"
+    resource  String? // Recurso específico (ej: cuentaId, tarjetaId)
+    metadata  Json? // Datos adicionales
+    ip        String?
+    userAgent String?
+    createdAt DateTime @default(now())
+
+    asesor Asesor? @relation(fields: [asesorId], references: [id], onDelete: SetNull)
+
+    @@index([asesorId])
+    @@index([usuarioId])
+    @@index([createdAt])
+    @@map("advisor_audit_logs")
 }

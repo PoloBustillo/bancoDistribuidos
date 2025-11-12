@@ -242,6 +242,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setNotifications([]);
   }, []);
 
+  // Restaurar sesión al cargar la página
+  useEffect(() => {
+    const restoreSession = async () => {
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+      if (token && !user) {
+        try {
+          // Configurar el token en el cliente API
+          apiClient.setToken(token);
+
+          // Obtener datos del usuario
+          const data = await apiClient.getMe();
+          setUser(data.usuario);
+          setAccounts(data.cuentas || []);
+          setCards(data.tarjetas || []);
+
+          console.log("✅ Sesión restaurada exitosamente");
+        } catch (error) {
+          console.error("❌ Error al restaurar sesión:", error);
+          // Si el token es inválido, limpiar
+          localStorage.removeItem("token");
+          apiClient.setToken(null);
+        }
+      }
+    };
+
+    restoreSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Solo ejecutar al montar el componente
+
   // Manejar eventos de Socket.IO en tiempo real
   useEffect(() => {
     const socket = socketRef.current;

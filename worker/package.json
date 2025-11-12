@@ -9,7 +9,9 @@
     "db:studio": "bunx prisma studio",
     "prisma:generate": "bunx prisma generate --schema=prisma/schema.prisma",
     "prisma:migrate:dev": "bunx prisma migrate dev --schema=prisma/schema.prisma",
-    "prisma:migrate:deploy": "bunx prisma migrate deploy --schema=prisma/schema.prisma"
+    "prisma:migrate:deploy": "bunx prisma migrate deploy --schema=prisma/schema.prisma",
+    "seed:advisor": "bun scripts/seed-advisor.ts",
+    "terminal:asesor": "bun terminal-asesor.ts"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

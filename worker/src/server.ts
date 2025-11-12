@@ -7,6 +7,7 @@ import { authService } from "./auth/authService";
 import { WorkerClient } from "./services/workerClient";
 import { BancoService } from "./services/bancoService";
 import { CuentasCompartidasService } from "./services/cuentasCompartidasService";
+import { advisorService } from "./services/advisorService";
 import prisma from "./prisma/client";
 import { z } from "zod";
 import { bankingEvents, EventType } from "./services/eventEmitter";
@@ -245,7 +246,13 @@ const loginSchema = z.object({
 
 // Middleware de autenticación
 interface AuthRequest extends Request {
-  usuario?: any;
+  usuario?: {
+    id: string;
+    email: string;
+    role?: string;
+    asesorId?: string;
+    scope?: string[];
+  };
   jti?: string;
 }
 
@@ -682,6 +689,200 @@ app.post(
       res.status(201).json(resultado);
     } catch (error: any) {
       console.error("Error al crear cuenta adicional:", error.message);
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+// ========================================
+// 🎓 RUTAS: SISTEMA DE ASESORES
+// ========================================
+
+// POST /api/client/verification-code - Cliente genera código para asesor
+app.post(
+  "/api/client/verification-code",
+  verificarAuth,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const resultado = await advisorService.generarCodigoVerificacion(
+        req.usuario!.id
+      );
+
+      res.json({
+        message:
+          "Código generado exitosamente. Proporcione este código al asesor.",
+        codigo: resultado.codigo,
+        expiresAt: resultado.expiresAt,
+        expiresIn: resultado.expiresIn, // Segundos restantes
+      });
+    } catch (error: any) {
+      console.error("Error al generar código:", error.message);
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+// POST /api/advisor/verify-client - Asesor verifica cliente
+app.post("/api/advisor/verify-client", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      asesorId: z.string().uuid(),
+      numeroRecurso: z.string(), // número de cuenta o tarjeta
+      ultimosDigitos: z.string().length(4),
+      codigo: z.string().length(6),
+    });
+
+    const data = schema.parse(req.body);
+    const ip = req.ip;
+    const userAgent = req.get("user-agent");
+
+    const resultado = await advisorService.verificarCliente(
+      data.asesorId,
+      data.numeroRecurso,
+      data.ultimosDigitos,
+      data.codigo,
+      ip,
+      userAgent
+    );
+
+    res.json(resultado);
+  } catch (error: any) {
+    console.error("Error al verificar cliente:", error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Middleware para validar token de asesor
+const verificarAsesor = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const token = req.headers.authorization?.replace("Bearer ", "");
+    if (!token) {
+      return res.status(401).json({ error: "Token de asesor requerido" });
+    }
+
+    const payload = await advisorService.validarToken(token);
+    req.usuario = {
+      id: payload.impersonatedUser,
+      email: "",
+      role: "ASESOR",
+      asesorId: payload.sub,
+      scope: payload.scope,
+    };
+
+    next();
+  } catch (error: any) {
+    res.status(401).json({ error: error.message });
+  }
+};
+
+// GET /api/advisor/client/:usuarioId/accounts - Ver cuentas del cliente
+app.get(
+  "/api/advisor/client/:usuarioId/accounts",
+  verificarAsesor,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { usuarioId } = req.params;
+
+      // Verificar que el asesor tiene acceso a este usuario
+      if (req.usuario!.id !== usuarioId) {
+        return res.status(403).json({
+          error: "No tiene acceso a este cliente",
+        });
+      }
+
+      const cuentas = await advisorService.obtenerCuentasUsuario(
+        req.usuario!.asesorId!,
+        usuarioId,
+        req.ip,
+        req.get("user-agent")
+      );
+
+      res.json(cuentas);
+    } catch (error: any) {
+      console.error("Error al obtener cuentas:", error.message);
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+// GET /api/advisor/client/:usuarioId/cards - Ver tarjetas del cliente
+app.get(
+  "/api/advisor/client/:usuarioId/cards",
+  verificarAsesor,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { usuarioId } = req.params;
+
+      if (req.usuario!.id !== usuarioId) {
+        return res.status(403).json({
+          error: "No tiene acceso a este cliente",
+        });
+      }
+
+      const tarjetas = await advisorService.obtenerTarjetasUsuario(
+        req.usuario!.asesorId!,
+        usuarioId,
+        req.ip,
+        req.get("user-agent")
+      );
+
+      res.json(tarjetas);
+    } catch (error: any) {
+      console.error("Error al obtener tarjetas:", error.message);
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+// GET /api/advisor/client/:usuarioId/account/:cuentaId/balance - Ver saldo
+app.get(
+  "/api/advisor/client/:usuarioId/account/:cuentaId/balance",
+  verificarAsesor,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { usuarioId, cuentaId } = req.params;
+
+      if (req.usuario!.id !== usuarioId) {
+        return res.status(403).json({
+          error: "No tiene acceso a este cliente",
+        });
+      }
+
+      const saldo = await advisorService.obtenerSaldoCuenta(
+        req.usuario!.asesorId!,
+        usuarioId,
+        cuentaId,
+        req.ip,
+        req.get("user-agent")
+      );
+
+      res.json(saldo);
+    } catch (error: any) {
+      console.error("Error al obtener saldo:", error.message);
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+// POST /api/advisor/logout - Cerrar sesión de asesor
+app.post(
+  "/api/advisor/logout",
+  verificarAsesor,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const token = req.headers.authorization?.replace("Bearer ", "");
+      if (token) {
+        const payload = await advisorService.validarToken(token);
+        await advisorService.revocarSesion(payload.jti);
+      }
+
+      res.json({ message: "Sesión cerrada exitosamente" });
+    } catch (error: any) {
+      console.error("Error al cerrar sesión:", error.message);
       res.status(400).json({ error: error.message });
     }
   }
