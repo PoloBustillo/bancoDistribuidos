@@ -71,74 +71,78 @@ const AppContext = createContext<AppState | undefined>(undefined);
 
 // Función para obtener los workers por defecto según el entorno
 const getDefaultWorkers = (): Worker[] => {
-  // En el servidor (SSR), usar producción por defecto
+  // Usar variables de entorno si están disponibles
+  const worker1Url = process.env.NEXT_PUBLIC_WORKER1_URL || "https://api1.psic-danieladiaz.com";
+  const worker2Url = process.env.NEXT_PUBLIC_WORKER2_URL || "https://api2.psic-danieladiaz.com";
+  const worker3Url = process.env.NEXT_PUBLIC_WORKER3_URL || "https://api3.psic-danieladiaz.com";
+
+  // En el servidor (SSR), siempre usar producción
   if (typeof window === "undefined") {
     return [
       {
         id: "worker1",
         name: "Worker 1 (API1)",
-        url: "https://api1.psic-danieladiaz.com",
+        url: worker1Url,
         color: "bg-blue-500",
       },
       {
         id: "worker2",
         name: "Worker 2 (API2)",
-        url: "https://api2.psic-danieladiaz.com",
+        url: worker2Url,
         color: "bg-green-500",
       },
       {
         id: "worker3",
         name: "Worker 3 (API3)",
-        url: "https://api3.psic-danieladiaz.com",
+        url: worker3Url,
         color: "bg-purple-500",
       },
     ];
   }
 
-  // En el cliente, detectar el entorno
-  const isProduction =
-    window.location.hostname.includes("vercel.app") ||
-    window.location.protocol === "https:";
+  // En desarrollo local, usar localhost
+  if (window.location.hostname === "localhost") {
+    return [
+      {
+        id: "worker1",
+        name: "Worker 1",
+        url: "http://localhost:3001",
+        color: "bg-blue-500",
+      },
+      {
+        id: "worker2",
+        name: "Worker 2",
+        url: "http://localhost:3002",
+        color: "bg-green-500",
+      },
+    ];
+  }
 
-  return isProduction
-    ? [
-        {
-          id: "worker1",
-          name: "Worker 1 (API1)",
-          url: "https://api1.psic-danieladiaz.com",
-          color: "bg-blue-500",
-        },
-        {
-          id: "worker2",
-          name: "Worker 2 (API2)",
-          url: "https://api2.psic-danieladiaz.com",
-          color: "bg-green-500",
-        },
-        {
-          id: "worker3",
-          name: "Worker 3 (API3)",
-          url: "https://api3.psic-danieladiaz.com",
-          color: "bg-purple-500",
-        },
-      ]
-    : [
-        {
-          id: "worker1",
-          name: "Worker 1",
-          url: "http://localhost:3001",
-          color: "bg-blue-500",
-        },
-        {
-          id: "worker2",
-          name: "Worker 2",
-          url: "http://localhost:3002",
-          color: "bg-green-500",
-        },
-      ];
+  // En producción (Vercel), usar las URLs configuradas
+  return [
+    {
+      id: "worker1",
+      name: "Worker 1 (API1)",
+      url: worker1Url,
+      color: "bg-blue-500",
+    },
+    {
+      id: "worker2",
+      name: "Worker 2 (API2)",
+      url: worker2Url,
+      color: "bg-green-500",
+    },
+    {
+      id: "worker3",
+      name: "Worker 3 (API3)",
+      url: worker3Url,
+      color: "bg-purple-500",
+    },
+  ];
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  // Cargar workers de localStorage o usar defaults
+  // Cargar workers de localStorage o usar defaults - RESPETAMOS LO QUE EL USUARIO ELIGIÓ
   const [workers, setWorkers] = useState<Worker[]>(() => {
     if (typeof window === "undefined") return getDefaultWorkers();
     const saved = localStorage.getItem("workers");
@@ -190,43 +194,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [events, setEvents] = useState<BankingEvent[]>([]);
   const socketRef = useRef<Socket | null>(null);
 
-  // Limpiar localStorage si contiene URLs de localhost en producción
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const isProduction =
-      window.location.hostname.includes("vercel.app") ||
-      window.location.protocol === "https:";
-
-    if (isProduction) {
-      const savedWorkers = localStorage.getItem("workers");
-      const savedSelectedWorker = localStorage.getItem("selectedWorker");
-
-      // Si hay workers guardados con localhost, limpiar
-      if (savedWorkers && savedWorkers.includes("localhost")) {
-        console.log("🧹 Limpiando workers de localhost en producción");
-        localStorage.removeItem("workers");
-        localStorage.removeItem("selectedWorker");
-
-        // Actualizar con valores de producción
-        const prodWorkers = getDefaultWorkers();
-        setWorkers(prodWorkers);
-        setSelectedWorkerState(prodWorkers[0]);
-
-        // Guardar los nuevos valores
-        localStorage.setItem("workers", JSON.stringify(prodWorkers));
-        localStorage.setItem("selectedWorker", JSON.stringify(prodWorkers[0]));
-      }
-
-      // Si el worker seleccionado es localhost, cambiarlo
-      if (savedSelectedWorker && savedSelectedWorker.includes("localhost")) {
-        console.log("🧹 Limpiando selectedWorker de localhost en producción");
-        const prodWorkers = getDefaultWorkers();
-        setSelectedWorkerState(prodWorkers[0]);
-        localStorage.setItem("selectedWorker", JSON.stringify(prodWorkers[0]));
-      }
-    }
-  }, []);
+  // ELIMINADO: No forzamos cambios, respetamos la elección del usuario
 
   // Clear events
   const clearEvents = useCallback(() => {
