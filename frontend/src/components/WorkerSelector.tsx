@@ -90,12 +90,12 @@ export default function WorkerSelector() {
         🔌 Selección de Worker
       </h3>
 
-      <div className="flex flex-wrap gap-2 mb-3">
+      <div className="flex flex-col sm:flex-row gap-2 mb-3">
         {workers.map((worker) => (
           <div key={worker.id} className="flex items-center gap-1">
             <button
               onClick={() => setSelectedWorker(worker)}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              className={`w-full sm:w-auto px-4 py-2 rounded-lg font-medium transition-all ${
                 selectedWorker.id === worker.id
                   ? `${worker.color} text-white shadow-lg`
                   : "bg-gray-700 text-gray-300 hover:bg-gray-600"
@@ -127,7 +127,7 @@ export default function WorkerSelector() {
 
         <button
           onClick={() => setShowAddWorker(!showAddWorker)}
-          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg font-medium transition-colors"
+          className="w-full sm:w-auto px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg font-medium transition-colors"
         >
           ➕ Agregar Worker
         </button>

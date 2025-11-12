@@ -80,7 +80,7 @@ export function VerificationCode() {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 max-w-md mx-auto">
+    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 max-w-md w-full mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center">
           <span className="text-white text-xl">👤</span>
@@ -99,7 +99,7 @@ export function VerificationCode() {
           <button
             onClick={generarCodigo}
             disabled={loading}
-            className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
+            className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 sm:px-6 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -128,12 +128,12 @@ export function VerificationCode() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-xl p-6 text-center shadow-xl">
+            <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-xl p-4 sm:p-6 text-center shadow-xl">
             <p className="text-purple-100 text-sm mb-2 font-medium">
               Tu código de verificación:
             </p>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 mb-3">
-              <p className="text-5xl font-bold text-white tracking-[0.5em] font-mono">
+              <p className="text-4xl sm:text-5xl font-bold text-white tracking-[0.25em] sm:tracking-[0.5em] font-mono">
                 {codigo}
               </p>
             </div>
@@ -172,7 +172,7 @@ export function VerificationCode() {
           <button
             onClick={generarCodigo}
             disabled={loading}
-            className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition-all duration-300"
+            className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-4 sm:px-6 rounded-lg transition-all duration-300"
           >
             🔄 Generar Nuevo Código
           </button>
