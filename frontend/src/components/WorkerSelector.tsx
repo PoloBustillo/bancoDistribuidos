@@ -211,7 +211,7 @@ export default function WorkerSelector() {
                   type="text"
                   value={newWorkerHost}
                   onChange={(e) => setNewWorkerHost(e.target.value)}
-                  placeholder="http://146.190.119.145:3001 o servidor.com:3001"
+                  placeholder="https://api1.psic-danieladiaz.com o servidor.com:3001"
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500 font-mono"
                   required
                 />
@@ -234,9 +234,9 @@ export default function WorkerSelector() {
               <div className="text-xs text-gray-400 bg-gray-800/50 p-2 rounded">
                 💡 <strong>Ejemplos válidos:</strong>
                 <ul className="mt-1 ml-4 space-y-1 font-mono text-blue-400">
-                  <li>• http://146.190.119.145:3001</li>
+                  <li>• https://api1.psic-danieladiaz.com</li>
+                  <li>• https://api2.psic-danieladiaz.com</li>
                   <li>• worker1.midominio.com:3001</li>
-                  <li>• 192.168.1.100:3001</li>
                 </ul>
               </div>
             </div>
