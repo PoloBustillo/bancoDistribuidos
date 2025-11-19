@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Distributed Banking System",
-  description: "Educational demo of distributed systems concepts",
+  title: "Banco Distribuido",
+  description: "Proyecto",
 };
 
 export default function RootLayout({
