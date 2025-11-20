@@ -1,0 +1,40 @@
+{
+  "name": "banco-distribuido",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema bancario distribuido con workers, coordinador y frontend",
+  "workspaces": [
+    "frontend",
+    "worker",
+    "coordinador"
+  ],
+  "scripts": {
+    "install:all": "bun install && cd frontend && bun install && cd ../worker && bun install && cd ../coordinador && bun install",
+    "dev": "concurrently \"bun run dev:worker\" \"bun run dev:coordinador\" \"bun run dev:frontend\"",
+    "dev:backend": "concurrently \"bun run dev:worker\" \"bun run dev:coordinador\"",
+    "dev:worker": "cd worker && PORT=${PORT:-3001} bun run dev",
+    "dev:worker:3001": "cd worker && PORT=3001 bun run dev",
+    "dev:worker:3002": "cd worker && PORT=3002 bun run dev",
+    "dev:worker:3003": "cd worker && PORT=3003 bun run dev",
+    "dev:coordinador": "cd coordinador && bun run dev",
+    "dev:frontend": "cd frontend && bun run dev",
+    "start": "concurrently \"bun run start:worker\" \"bun run start:coordinador\" \"bun run start:frontend\"",
+    "start:worker": "cd worker && bun run start",
+    "start:coordinador": "cd coordinador && bun run start",
+    "start:frontend": "cd frontend && bun run start",
+    "build:frontend": "cd frontend && bun run build",
+    "lint:frontend": "cd frontend && bun run lint",
+    "db:push": "cd worker && bun run db:push",
+    "db:studio": "cd worker && bun run db:studio",
+    "prisma:generate": "cd worker && bun run prisma:generate",
+    "prisma:migrate:dev": "cd worker && bun run prisma:migrate:dev",
+    "prisma:migrate:deploy": "cd worker && bun run prisma:migrate:deploy",
+    "seed:advisor": "cd worker && bun run seed:advisor",
+    "terminal:asesor": "cd worker && bun run terminal:asesor",
+    "clean": "rm -rf node_modules frontend/node_modules worker/node_modules coordinador/node_modules",
+    "clean:build": "rm -rf frontend/.next worker/dist coordinador/dist"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
