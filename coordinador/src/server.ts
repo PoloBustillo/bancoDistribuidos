@@ -1,6 +1,7 @@
 import { createServer } from "http";
 import { Server as SocketServer } from "socket.io";
-import { LockCoordinator } from "./coordinator";
+import { LockCoordinator } from "./coordinator/coordinator";
+import { logger } from "@banco/shared/logger";
 
 const PORT = parseInt(process.env.PORT || "4000");
 
@@ -34,9 +35,11 @@ httpServer.on("request", (req, res) => {
   }
 
   if (req.url === "/api/stats" && req.method === "GET") {
+    logger.info("GET /api/stats", { url: req.url, method: req.method });
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(coordinator.getEstadisticas(), null, 2));
   } else if (req.url === "/api/health" && req.method === "GET") {
+    logger.info("GET /api/health", { url: req.url, method: req.method });
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify({
@@ -47,6 +50,7 @@ httpServer.on("request", (req, res) => {
       })
     );
   } else {
+    logger.warn("404 Not Found", { url: req.url, method: req.method });
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Endpoint no encontrado" }));
   }
@@ -55,22 +59,22 @@ httpServer.on("request", (req, res) => {
 // Iniciar servidor - Escuchar en 0.0.0.0 para permitir conexiones externas
 const HOST = process.env.HOST || "0.0.0.0";
 httpServer.listen(PORT, HOST, () => {
-  console.log("\n" + "=".repeat(60));
-  console.log("🎯 COORDINADOR CENTRAL DE LOCKS");
-  console.log("=".repeat(60));
-  console.log(`📍 Puerto: ${PORT}`);
-  console.log(`🏠 Host: ${HOST}`);
-  console.log(`🔌 WebSocket: ws://${HOST}:${PORT}`);
-  console.log(`\n📊 Endpoints HTTP:`);
-  console.log(`   GET /api/stats  - Estadísticas de locks`);
-  console.log(`   GET /api/health - Estado del servidor`);
-  console.log("\n✅ Coordinador listo para recibir workers");
-  console.log("=".repeat(60) + "\n");
+  logger.coordinator("\n" + "=".repeat(60));
+  logger.coordinator("🎯 COORDINADOR CENTRAL DE LOCKS");
+  logger.coordinator("=".repeat(60));
+  logger.coordinator(`📍 Puerto: ${PORT}`);
+  logger.coordinator(`🏠 Host: ${HOST}`);
+  logger.coordinator(`🔌 WebSocket: ws://${HOST}:${PORT}`);
+  logger.coordinator(`\n📊 Endpoints HTTP:`);
+  logger.coordinator(`   GET /api/stats  - Estadísticas de locks`);
+  logger.coordinator(`   GET /api/health - Estado del servidor`);
+  logger.coordinator("\n✅ Coordinador listo para recibir workers");
+  logger.coordinator("=".repeat(60) + "\n");
 });
 
 // Manejar cierre graceful
 process.on("SIGINT", () => {
-  console.log("\n👋 Cerrando coordinador...");
+  logger.coordinator("\n👋 Cerrando coordinador...");
   io.close();
   httpServer.close();
   process.exit(0);
@@ -78,9 +82,9 @@ process.on("SIGINT", () => {
 
 // Log de eventos globales
 io.on("connection", (socket) => {
-  console.log(`\n🔗 Conexión establecida: ${socket.id}`);
+  logger.network(`\n🔗 Conexión establecida: ${socket.id}`);
 
   socket.on("disconnect", (reason) => {
-    console.log(`\n❌ Desconexión: ${socket.id} (${reason})`);
+    logger.network(`\n❌ Desconexión: ${socket.id} (${reason})`);
   });
 });
