@@ -32,9 +32,7 @@ export default function RootLayout({
       >
         <AppProvider>
           <Navigation />
-          <main>
-            {children}
-          </main>
+          <main>{children}</main>
           <NotificationCenter />
         </AppProvider>
       </body>
