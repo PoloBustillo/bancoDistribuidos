@@ -6,9 +6,12 @@ version: '3.8'
 services:
   # Coordinador
   coordinador:
-    build:
-      context: .
-      dockerfile: coordinador/Dockerfile
+    # Para development local: usa build
+    # Para production: usa image de GHCR
+    image: ghcr.io/polobustillo/banco-coordinador:latest
+    # build:
+    #   context: .
+    #   dockerfile: coordinador/Dockerfile
     container_name: banco-coordinador
     environment:
       PORT: 4000
@@ -27,9 +30,11 @@ services:
 
   # Worker 1
   worker-1:
-    build:
-      context: .
-      dockerfile: worker/Dockerfile
+    # Los 3 workers usan la MISMA imagen (mismo código, diferentes puertos)
+    image: ghcr.io/polobustillo/banco-worker:latest
+    # build:
+    #   context: .
+    #   dockerfile: worker/Dockerfile
     container_name: banco-worker-1
     environment:
       PORT: 3001
@@ -56,9 +61,11 @@ services:
 
   # Worker 2
   worker-2:
-    build:
-      context: .
-      dockerfile: worker/Dockerfile
+    # Misma imagen que worker-1, solo cambia PORT
+    image: ghcr.io/polobustillo/banco-worker:latest
+    # build:
+    #   context: .
+    #   dockerfile: worker/Dockerfile
     container_name: banco-worker-2
     environment:
       PORT: 3002
@@ -82,9 +89,11 @@ services:
 
   # Worker 3
   worker-3:
-    build:
-      context: .
-      dockerfile: worker/Dockerfile
+    # Misma imagen que worker-1 y worker-2
+    image: ghcr.io/polobustillo/banco-worker:latest
+    # build:
+    #   context: .
+    #   dockerfile: worker/Dockerfile
     container_name: banco-worker-3
     environment:
       PORT: 3003

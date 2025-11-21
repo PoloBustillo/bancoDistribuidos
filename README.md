@@ -2,6 +2,46 @@
 
 Un sistema bancario distribuido que implementa el patrón **Coordinador-Trabajador** para gestionar operaciones concurrentes sobre cuentas bancarias compartidas usando **locks distribuidos**.
 
+## 🚀 Quick Start
+
+### 🐋 Deployment con Docker (Recomendado)
+
+```bash
+# 1. Clonar repositorio
+git clone https://github.com/PoloBustillo/bancoDistribuidos.git
+cd bancoDistribuidos
+
+# 2. Configurar variables de entorno
+cp .env.example .env
+# Editar .env con tus credenciales
+
+# 3. Iniciar servicios
+docker compose up -d
+
+# 4. Ver logs
+docker compose logs -f
+```
+
+**Nota:** Si migraste de PM2 a Docker, lee primero: [`MIGRATION-PM2-TO-DOCKER.md`](./MIGRATION-PM2-TO-DOCKER.md)
+
+### 📦 Development Local (Sin Docker)
+
+```bash
+# Instalar dependencias
+bun install
+
+# Iniciar coordinador
+cd coordinador && bun dev
+
+# En otra terminal, iniciar workers
+cd worker && bun dev
+```
+
+**Documentación completa:**
+- 🐋 [Deployment con Docker + GitHub Actions](./DEPLOYMENT-GITHUB-ACTIONS.md)
+- 🔄 [Migración de PM2 a Docker](./MIGRATION-PM2-TO-DOCKER.md)
+- 📋 [Deployment Original](./DEPLOYMENT-FINAL.md)
+
 ## � Arquitectura
 
 ### 🎯 Componentes
