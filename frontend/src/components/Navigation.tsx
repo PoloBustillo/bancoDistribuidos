@@ -3,7 +3,7 @@
 import { useApp } from "@/context/AppContext";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import WorkerSelector from "./WorkerSelector";
 import {
   HomeIcon,
@@ -32,15 +32,6 @@ export default function Navigation() {
   const [showWorkerDropdown, setShowWorkerDropdown] = useState(false);
   const [showWorkerModal, setShowWorkerModal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Cierra el dropdown de workers si la lista cambia
-  useEffect(() => {
-    setShowWorkerDropdown(false);
-  }, [workers.length]);
 
   const navLinks = [
     { href: "/", label: "Inicio", icon: HomeIcon },
@@ -124,17 +115,14 @@ export default function Navigation() {
                 <span
                   className="font-semibold hidden sm:inline"
                   style={{
-                    color: mounted
-                      ? selectedWorker.color &&
-                        selectedWorker.color.startsWith("#")
+                    color:
+                      selectedWorker.color &&
+                      selectedWorker.color.startsWith("#")
                         ? selectedWorker.color
-                        : selectedWorker.color || "#2563eb"
-                      : "#2563eb",
+                        : selectedWorker.color || "#2563eb",
                   }}
                 >
-                  {mounted
-                    ? selectedWorker.name.replace(/\s*\(.*\)/, "")
-                    : "Worker 1"}
+                  {selectedWorker.name.replace(/\s*\(.*\)/, "")}
                 </span>
                 <ChevronDownIcon className="w-4 h-4 text-gray-600" />
               </button>
