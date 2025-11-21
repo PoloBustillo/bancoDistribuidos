@@ -2,17 +2,23 @@ import { createServer } from "http";
 import { Server as SocketServer } from "socket.io";
 import { LockCoordinator } from "./coordinator/coordinator";
 import { logger } from "@banco/shared/logger";
+import { ConfigManager } from "@banco/shared/config";
 
 const PORT = parseInt(process.env.PORT || "4000");
 
 // Crear servidor HTTP
 const httpServer = createServer();
 
+// Obtener orígenes CORS permitidos
+const allowedOrigins = ConfigManager.getCorsOrigins();
+logger.coordinator(`🌐 CORS Origins configurados: ${allowedOrigins.join(", ")}`);
+
 // Crear servidor Socket.IO con CORS
 const io = new SocketServer(httpServer, {
   cors: {
-    origin: "*",
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
+    credentials: true,
   },
   transports: ["websocket", "polling"],
 });
@@ -23,7 +29,11 @@ const coordinator = new LockCoordinator(io);
 // Endpoint HTTP para estadísticas
 httpServer.on("request", (req, res) => {
   // CORS headers para permitir peticiones desde el frontend
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 

@@ -13,6 +13,8 @@ import { z } from "zod";
 import { bankingEvents, EventType } from "./services/eventEmitter";
 import type { BankingEvent } from "./services/eventEmitter";
 import jwt from "jsonwebtoken";
+import { ConfigManager } from "@banco/shared/config";
+import { logger } from "@banco/shared/logger";
 
 const app = express();
 const httpServer = createServer(app);
@@ -223,18 +225,27 @@ bankingEvents.on(EventType.TARJETA_ESTADO_CAMBIADO, (event: BankingEvent) => {
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Permitir localhost y dominios de frontend conocidos
-      const allowed = [
+      // Obtener orígenes permitidos desde config compartido
+      const allowedOrigins = ConfigManager.getCorsOrigins();
+      
+      // Agregar orígenes adicionales locales
+      const localOrigins = [
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:3002",
         "http://localhost:3003",
-        "https://banco.psic-danieladiaz.com", // Cambia esto por tu dominio frontend real
-        "https://frontend.psic-danieladiaz.com", // Otro posible dominio
       ];
-      if (!origin || allowed.includes(origin)) {
+      
+      const allAllowed = [...allowedOrigins, ...localOrigins];
+      
+      // Si no hay origin (peticiones server-to-server o Postman) o está en la lista, permitir
+      if (!origin || allAllowed.includes(origin)) {
         callback(null, true);
       } else {
+        logger.warn(`🚫 CORS blocked: ${origin}`, { 
+          origin, 
+          allowed: allAllowed 
+        });
         callback(new Error("Not allowed by CORS"));
       }
     },

@@ -6,9 +6,9 @@ version: '3.8'
 services:
   # Coordinador
   coordinador:
-    # Para development local: usa build
     # Para production: usa image de GHCR
-    image: ghcr.io/polobustillo/banco-coordinador:latest
+    image: ghcr.io/polobustillo/bancodistribuidos-coordinador:latest
+    # Para development local: descomentar build y comentar image
     # build:
     #   context: .
     #   dockerfile: coordinador/Dockerfile
@@ -16,6 +16,7 @@ services:
     environment:
       PORT: 4000
       NODE_ENV: production
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://banco-distribuidos.vercel.app}
     ports:
       - "4000:4000"
     healthcheck:
@@ -31,7 +32,9 @@ services:
   # Worker 1
   worker-1:
     # Los 3 workers usan la MISMA imagen (mismo código, diferentes puertos)
-    image: ghcr.io/polobustillo/banco-worker:latest
+    # Para production: usa image de GHCR
+    image: ghcr.io/polobustillo/bancodistribuidos-worker:latest
+    # Para development local: descomentar build y comentar image
     # build:
     #   context: .
     #   dockerfile: worker/Dockerfile
@@ -42,6 +45,7 @@ services:
       # DATABASE_URL debe apuntar a la BD externa del servidor
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: production
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://banco-distribuidos.vercel.app}
     ports:
       - "3001:3001"
     depends_on:
@@ -62,7 +66,8 @@ services:
   # Worker 2
   worker-2:
     # Misma imagen que worker-1, solo cambia PORT
-    image: ghcr.io/polobustillo/banco-worker:latest
+    image: ghcr.io/polobustillo/bancodistribuidos-worker:latest
+    # Para development local: descomentar build y comentar image
     # build:
     #   context: .
     #   dockerfile: worker/Dockerfile
@@ -72,6 +77,7 @@ services:
       COORDINADOR_URL: http://coordinador:4000
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: production
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://banco-distribuidos.vercel.app}
     ports:
       - "3002:3002"
     depends_on:
@@ -90,7 +96,8 @@ services:
   # Worker 3
   worker-3:
     # Misma imagen que worker-1 y worker-2
-    image: ghcr.io/polobustillo/banco-worker:latest
+    image: ghcr.io/polobustillo/bancodistribuidos-worker:latest
+    # Para development local: descomentar build y comentar image
     # build:
     #   context: .
     #   dockerfile: worker/Dockerfile
@@ -100,6 +107,7 @@ services:
       COORDINADOR_URL: http://coordinador:4000
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: production
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://banco-distribuidos.vercel.app}
     ports:
       - "3003:3003"
     depends_on:
@@ -115,6 +123,41 @@ services:
     networks:
       - banco-network
 
+  # ========================================
+  # 🌐 CADDY REVERSE PROXY (OPCIONAL)
+  # ========================================
+  # Descomentar para usar Caddy como reverse proxy con HTTPS automático
+  # Requiere configurar DOMAIN en .env
+  # 
+  # caddy:
+  #   image: caddy:2-alpine
+  #   container_name: banco-caddy
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+  #     - caddy_logs:/var/log/caddy
+  #   environment:
+  #     DOMAIN: ${DOMAIN:-localhost}
+  #     CORS_ORIGIN: ${CORS_ORIGIN:-https://banco-distribuidos.vercel.app}
+  #   networks:
+  #     - banco-network
+  #   depends_on:
+  #     - coordinador
+  #     - worker-1
+  #     - worker-2
+  #     - worker-3
+
 networks:
   banco-network:
     driver: bridge
+
+# Volúmenes para Caddy (descomentar si usas Caddy)
+# volumes:
+#   caddy_data:
+#   caddy_config:
+#   caddy_logs:

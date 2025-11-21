@@ -1,0 +1,212 @@
+# ========================================
+# 🌐 CADDY REVERSE PROXY CONFIGURATION
+# ========================================
+# Configuración para exponer los servicios del banco
+# a través de un dominio con HTTPS automático
+# ========================================
+
+# Reemplaza este dominio con tu dominio real
+{$DOMAIN:localhost} {
+    # Habilitar logs
+    log {
+        output file /var/log/caddy/access.log
+    }
+
+    # Configurar CORS headers globalmente
+    @cors_preflight {
+        method OPTIONS
+    }
+    
+    handle @cors_preflight {
+        header {
+            Access-Control-Allow-Origin "{$CORS_ORIGIN:https://banco-distribuidos.vercel.app}"
+            Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            Access-Control-Allow-Headers "Content-Type, Authorization"
+            Access-Control-Allow-Credentials "true"
+            Access-Control-Max-Age "3600"
+        }
+        respond 204
+    }
+
+    # Headers de seguridad
+    header {
+        # Habilitar CORS para todas las respuestas
+        Access-Control-Allow-Origin "{$CORS_ORIGIN:https://banco-distribuidos.vercel.app}"
+        Access-Control-Allow-Credentials "true"
+        
+        # Security headers
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        
+        # Eliminar headers que revelan información del servidor
+        -Server
+        -X-Powered-By
+    }
+
+    # ========================================
+    # 📊 COORDINADOR - Puerto 4000
+    # ========================================
+    handle /coordinator* {
+        reverse_proxy coordinador:4000 {
+            # WebSocket support para Socket.IO
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            
+            # Timeouts para conexiones largas
+            transport http {
+                read_timeout 3600s
+                write_timeout 3600s
+                dial_timeout 30s
+            }
+        }
+    }
+
+    # Health check del coordinador
+    handle /health {
+        reverse_proxy coordinador:4000
+    }
+
+    # Stats del coordinador
+    handle /api/stats {
+        reverse_proxy coordinador:4000
+    }
+
+    # ========================================
+    # 👷 WORKERS - Puertos 3001, 3002, 3003
+    # ========================================
+    # Load balancer entre los 3 workers
+    handle /api/* {
+        reverse_proxy worker-1:3001 worker-2:3002 worker-3:3003 {
+            # Load balancing strategy
+            lb_policy round_robin
+            
+            # Health checks
+            health_uri /api/health
+            health_interval 10s
+            health_timeout 5s
+            health_status 2xx
+            
+            # Failover
+            fail_duration 30s
+            max_fails 3
+            unhealthy_status 5xx
+            
+            # Headers
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            
+            # Timeouts
+            transport http {
+                read_timeout 60s
+                write_timeout 60s
+                dial_timeout 10s
+            }
+        }
+    }
+
+    # ========================================
+    # 🔌 WEBSOCKET - Socket.IO
+    # ========================================
+    # Ruta específica para Socket.IO
+    @websocket {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    
+    handle @websocket {
+        reverse_proxy coordinador:4000 {
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            
+            transport http {
+                read_timeout 3600s
+                write_timeout 3600s
+            }
+        }
+    }
+
+    # Soporte para Socket.IO polling
+    handle /socket.io/* {
+        reverse_proxy coordinador:4000 {
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # ========================================
+    # 🏠 ROOT - Página de bienvenida
+    # ========================================
+    handle / {
+        respond `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Banco Distribuido API</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #2c3e50; }
+        .endpoint {
+            background: #ecf0f1;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.ok { background: #27ae60; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 Banco Distribuido API</h1>
+        <p><span class="status ok">ONLINE</span></p>
+        
+        <h2>Endpoints Disponibles:</h2>
+        <div class="endpoint">GET /health - Health check</div>
+        <div class="endpoint">GET /api/stats - Estadísticas del coordinador</div>
+        <div class="endpoint">POST /api/auth/register - Registro de usuarios</div>
+        <div class="endpoint">POST /api/auth/login - Login de usuarios</div>
+        <div class="endpoint">GET /api/accounts - Ver cuentas</div>
+        <div class="endpoint">POST /api/transactions - Realizar transacciones</div>
+        
+        <h2>Coordinador:</h2>
+        <div class="endpoint">WS /socket.io - WebSocket para coordinación</div>
+        
+        <p><small>Banco Distribuido con Sistema de Locks © 2024</small></p>
+    </div>
+</body>
+</html>
+        ` 200
+    }
+
+    # Catch-all para rutas no encontradas
+    handle {
+        respond "Not Found" 404
+    }
+}
+
