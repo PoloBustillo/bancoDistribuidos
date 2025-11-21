@@ -74,6 +74,7 @@ const getDefaultWorkers = (): Worker[] => {
   // Usar variables de entorno si están disponibles
   const worker1Url =
     process.env.NEXT_PUBLIC_WORKER1_URL || "https://api1.psic-danieladiaz.com";
+  const worker1AltUrl = "http://api1.psic-danieladiaz.com";
   const worker2Url =
     process.env.NEXT_PUBLIC_WORKER2_URL || "https://api2.psic-danieladiaz.com";
   const worker3Url =
@@ -86,6 +87,12 @@ const getDefaultWorkers = (): Worker[] => {
         id: "worker1",
         name: "Worker 1",
         url: worker1Url,
+        color: "#2563eb",
+      },
+      {
+        id: "worker1-alt",
+        name: "Worker 1 (Alt)",
+        url: worker1AltUrl,
         color: "#2563eb",
       },
       {
@@ -127,6 +134,12 @@ const getDefaultWorkers = (): Worker[] => {
       id: "worker1",
       name: "Worker 1",
       url: worker1Url,
+      color: "#2563eb",
+    },
+    {
+      id: "worker1-alt",
+      name: "Worker 1 (Alt)",
+      url: worker1AltUrl,
       color: "#2563eb",
     },
     {

@@ -72,14 +72,6 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-
-          {/* Placeholder for future settings */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800">
-              <strong>Próximamente:</strong> Configuración de notificaciones,
-              preferencias de seguridad, y más opciones personalizables.
-            </p>
-          </div>
         </div>
       </div>
     </div>

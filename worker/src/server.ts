@@ -221,7 +221,22 @@ bankingEvents.on(EventType.TARJETA_ESTADO_CAMBIADO, (event: BankingEvent) => {
 // Permitir peticiones desde el frontend (Next.js)
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : "*", // En producción, especificar orígenes permitidos en CORS_ORIGIN
+    origin: function (origin, callback) {
+      // Permitir localhost y dominios de frontend conocidos
+      const allowed = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:3003",
+        "https://banco.psic-danieladiaz.com", // Cambia esto por tu dominio frontend real
+        "https://frontend.psic-danieladiaz.com", // Otro posible dominio
+      ];
+      if (!origin || allowed.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],

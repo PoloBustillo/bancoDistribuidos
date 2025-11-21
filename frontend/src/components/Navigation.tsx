@@ -54,7 +54,7 @@ export default function Navigation() {
   };
 
   return (
-    <nav className="bg-white border-b-2 border-gray-200 mb-6 shadow-md">
+    <nav className="bg-white">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -119,7 +119,7 @@ export default function Navigation() {
                       selectedWorker.color &&
                       selectedWorker.color.startsWith("#")
                         ? selectedWorker.color
-                        : "#2563eb",
+                        : selectedWorker.color || "#2563eb",
                   }}
                 >
                   {selectedWorker.name.replace(/\s*\(.*\)/, "")}
@@ -144,10 +144,20 @@ export default function Navigation() {
                           onClick={() => handleWorkerChange(worker.id)}
                           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-left ${
                             worker.id === selectedWorker.id
-                              ? "bg-blue-600 text-white shadow-md"
+                              ? "shadow-md text-white"
                               : "text-gray-700 hover:bg-gray-100 font-medium"
                           }`}
-                          style={{ borderLeft: `4px solid ${worker.color}` }}
+                          style={{
+                            borderLeft: `4px solid ${worker.color}`,
+                            backgroundColor:
+                              worker.id === selectedWorker.id &&
+                              worker.color &&
+                              worker.color.startsWith("#")
+                                ? worker.color
+                                : worker.id === selectedWorker.id
+                                ? "#2563eb"
+                                : undefined,
+                          }}
                         >
                           <ServerIcon className="w-4 h-4" />
                           <div className="flex-1 min-w-0">
