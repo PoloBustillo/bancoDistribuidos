@@ -1,6 +1,10 @@
-import type { Socket } from "socket.io";
+import type { Socket, Server } from "socket.io";
 import { v4 as uuidv4 } from "uuid";
-import { TipoMensaje } from "@banco/shared/types";
+import {
+  TipoMensaje,
+  type RegisterWorker,
+  type Heartbeat,
+} from "@banco/shared/types";
 import { logger } from "@banco/shared/logger";
 import type { WorkerInfo } from "./types";
 import { WorkerAuth } from "./auth";
@@ -15,7 +19,7 @@ export class WorkerManager {
     this.auth = new WorkerAuth();
   }
 
-  registrar(socket: Socket, msg: any): void {
+  registrar(socket: Socket, msg: RegisterWorker): void {
     // Validar token de autenticación
     const token = msg.token || socket.handshake.auth?.token;
     const tokenValido = token && this.auth.validarToken(token, msg.workerId);
@@ -65,7 +69,7 @@ export class WorkerManager {
     return worker?.autenticado ?? false;
   }
 
-  actualizarHeartbeat(msg: any): void {
+  actualizarHeartbeat(msg: Heartbeat): void {
     const worker = this.trabajadores.get(msg.workerId);
     if (worker) {
       worker.ultimoHeartbeat = Date.now();
@@ -102,7 +106,7 @@ export class WorkerManager {
     );
   }
 
-  verificarHeartbeats(io: any): void {
+  verificarHeartbeats(io: Server): void {
     const now = Date.now();
     for (const [workerId, worker] of this.trabajadores) {
       const tiempoSinHeartbeat = now - worker.ultimoHeartbeat;

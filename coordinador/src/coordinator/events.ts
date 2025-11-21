@@ -1,11 +1,13 @@
 import type { Server, Socket } from "socket.io";
 import { TipoMensaje } from "@banco/shared/types";
 import { logger } from "@banco/shared/logger";
+import type { ILockCoordinator } from "./interfaces";
+import { MessageValidator } from "./validators";
 
 export class EventManager {
-  private coordinator: any; // Reference to coordinator for callbacks
+  private coordinator: ILockCoordinator;
 
-  constructor(coordinator: any) {
+  constructor(coordinator: ILockCoordinator) {
     this.coordinator = coordinator;
   }
 
@@ -16,20 +18,60 @@ export class EventManager {
         remoteAddress: socket.handshake.address,
       });
 
-      socket.on(TipoMensaje.REGISTER_WORKER, (msg: any) => {
-        this.coordinator.manejarRegistroWorker(socket, msg);
+      socket.on(TipoMensaje.REGISTER_WORKER, (msg: unknown) => {
+        const validation = MessageValidator.validateRegisterWorker(msg);
+        if (!validation.success) {
+          logger.warn(`Mensaje inválido rechazado`, {
+            socketId: socket.id,
+            error: validation.error,
+          });
+          socket.emit("validation-error", {
+            error: validation.error,
+            tipo: TipoMensaje.REGISTER_WORKER,
+          });
+          return;
+        }
+        this.coordinator.manejarRegistroWorker(socket, validation.data!);
       });
 
-      socket.on(TipoMensaje.HEARTBEAT, (msg: any) => {
-        this.coordinator.manejarHeartbeat(socket, msg);
+      socket.on(TipoMensaje.HEARTBEAT, (msg: unknown) => {
+        const validation = MessageValidator.validateHeartbeat(msg);
+        if (!validation.success) {
+          logger.warn(`Heartbeat inválido rechazado`, {
+            socketId: socket.id,
+            error: validation.error,
+          });
+          return;
+        }
+        this.coordinator.manejarHeartbeat(socket, validation.data!);
       });
 
-      socket.on(TipoMensaje.LOCK_REQUEST, (msg: any) => {
-        this.coordinator.manejarLockRequest(socket, msg);
+      socket.on(TipoMensaje.LOCK_REQUEST, (msg: unknown) => {
+        const validation = MessageValidator.validateLockRequest(msg);
+        if (!validation.success) {
+          logger.warn(`Lock request inválido rechazado`, {
+            socketId: socket.id,
+            error: validation.error,
+          });
+          socket.emit("validation-error", {
+            error: validation.error,
+            tipo: TipoMensaje.LOCK_REQUEST,
+          });
+          return;
+        }
+        this.coordinator.manejarLockRequest(socket, validation.data!);
       });
 
-      socket.on(TipoMensaje.LOCK_RELEASE, (msg: any) => {
-        this.coordinator.manejarLockRelease(socket, msg);
+      socket.on(TipoMensaje.LOCK_RELEASE, (msg: unknown) => {
+        const validation = MessageValidator.validateLockRelease(msg);
+        if (!validation.success) {
+          logger.warn(`Lock release inválido rechazado`, {
+            socketId: socket.id,
+            error: validation.error,
+          });
+          return;
+        }
+        this.coordinator.manejarLockRelease(socket, validation.data!);
       });
 
       socket.on("status-request", () => {

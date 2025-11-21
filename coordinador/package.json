@@ -16,6 +16,7 @@
   "dependencies": {
     "@banco/shared": "workspace:*",
     "socket.io": "^4.8.1",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "zod": "^4.1.12"
   }
 }

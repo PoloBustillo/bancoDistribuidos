@@ -1,7 +1,13 @@
 import type { Socket } from "socket.io";
-import { TipoMensaje, generarClaveRecurso } from "@banco/shared/types";
+import {
+  TipoMensaje,
+  generarClaveRecurso,
+  type LockRequest,
+  type RecursoId,
+} from "@banco/shared/types";
 import { logger } from "@banco/shared/logger";
 import type { LockInfo } from "./types";
+import { ResponseBuilder } from "./responseBuilder";
 
 export class LockManager {
   private locksActivos: Map<string, LockInfo> = new Map();
@@ -11,7 +17,7 @@ export class LockManager {
     this.MAX_LOCK_TIME = maxLockTime;
   }
 
-  verificarConflicto(recursos: any[]): LockInfo | null {
+  verificarConflicto(recursos: RecursoId[]): LockInfo | null {
     for (const recurso of recursos) {
       const clave = generarClaveRecurso(recurso);
       const lockActivo = this.locksActivos.get(clave);
@@ -22,7 +28,7 @@ export class LockManager {
     return null;
   }
 
-  conceder(socket: Socket, request: any): void {
+  conceder(socket: Socket, request: LockRequest): void {
     const now = Date.now();
     const expiresAt = now + Math.min(request.timeout, this.MAX_LOCK_TIME);
     const lockInfo: LockInfo = {
@@ -39,15 +45,15 @@ export class LockManager {
       this.locksActivos.set(clave, lockInfo);
     }
 
-    const response = {
-      tipo: TipoMensaje.LOCK_GRANTED,
-      timestamp: now,
-      workerId: request.workerId,
-      requestId: request.requestId,
-      recursos: request.recursos,
-      expiresAt,
-    };
-    socket.emit(TipoMensaje.LOCK_GRANTED, response);
+    socket.emit(
+      TipoMensaje.LOCK_GRANTED,
+      ResponseBuilder.buildLockGranted(
+        request.workerId,
+        request.requestId,
+        request.recursos,
+        expiresAt
+      )
+    );
     logger.lock(
       `✅ Lock concedido a ${request.workerId}: ${
         request.operacion
@@ -61,7 +67,7 @@ export class LockManager {
     );
   }
 
-  liberar(recursos: any[]): void {
+  liberar(recursos: RecursoId[]): void {
     for (const recurso of recursos) {
       const clave = generarClaveRecurso(recurso);
       this.locksActivos.delete(clave);

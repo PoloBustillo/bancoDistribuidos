@@ -1,5 +1,6 @@
-import type { Socket } from "socket.io";
+import type { Server } from "socket.io";
 import { logger } from "@banco/shared/logger";
+import type { LockRequest } from "@banco/shared/types";
 import type { LockQueueEntry } from "./types";
 
 export class QueueManager {
@@ -8,7 +9,7 @@ export class QueueManager {
   private requestsEliminadosPorReintentos = 0;
   private requestsHuerfanos = 0;
 
-  agregar(socketId: string, request: any): void {
+  agregar(socketId: string, request: LockRequest): void {
     this.cola.push({
       socketId,
       request,
@@ -93,6 +94,10 @@ export class QueueManager {
     }));
   }
 
+  obtenerColaCompleta(): LockQueueEntry[] {
+    return [...this.cola];
+  }
+
   get tamaño(): number {
     return this.cola.length;
   }
@@ -104,7 +109,7 @@ export class QueueManager {
   /**
    * Elimina requests de sockets desconectados (huérfanos)
    */
-  limpiarHuerfanos(io: any): number {
+  limpiarHuerfanos(io: Server): number {
     const antes = this.cola.length;
     this.cola = this.cola.filter((entry) => {
       const socket = io.sockets.sockets.get(entry.socketId);
