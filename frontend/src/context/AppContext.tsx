@@ -10,7 +10,11 @@ import React, {
 } from "react";
 import { Worker, User, Account, Card } from "@/types";
 import { apiClient } from "@/lib/api";
-import { TokenManager, ActivityMonitor, migrateFromLocalStorage } from "@/lib/auth";
+import {
+  TokenManager,
+  ActivityMonitor,
+  migrateFromLocalStorage,
+} from "@/lib/auth";
 import { io, Socket } from "socket.io-client";
 
 interface BankingEventData {
@@ -289,18 +293,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return updated;
         });
 
-        // Notificar al usuario después de un pequeño delay
+        // Log silencioso en consola
         if (addedCount > 0) {
-          setTimeout(() => {
-            const notification: Notification = {
-              id: `worker-scan-${Date.now()}`,
-              type: "info",
-              title: "Workers detectados",
-              message: `Se encontraron ${discoveredWorkers.length} worker(s) disponible(s)`,
-              timestamp: new Date(),
-            };
-            setNotifications((prev) => [notification, ...prev].slice(0, 20));
-          }, 500);
+          console.log(`✅ ${addedCount} worker(s) agregado(s) automáticamente`);
         }
       }
 
@@ -362,6 +357,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     socket.on("connect_error", (err) => {
       console.error("❌ Error de conexión Socket.IO:", err.message);
+
+      // Si es error de autenticación, limpiar sesión
+      if (
+        err.message.includes("401") ||
+        err.message.includes("Unauthorized") ||
+        err.message.includes("authentication")
+      ) {
+        console.warn("🚫 Token rechazado por el servidor");
+        TokenManager.clearSession();
+        setUser(null);
+        setAccounts([]);
+        setCards([]);
+
+        const notification: Notification = {
+          id: `auth-error-${Date.now()}`,
+          type: "error",
+          title: "Error de autenticación",
+          message:
+            "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+          timestamp: new Date(),
+        };
+        setNotifications((prev) => [notification, ...prev].slice(0, 20));
+
+        setTimeout(() => {
+          if (typeof window !== "undefined") {
+            window.location.href = "/";
+          }
+        }, 2000);
+        return;
+      }
+
       setError(err.message);
       setConnected(false);
     });
@@ -504,6 +530,55 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     restoreSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Solo ejecutar al montar el componente
+
+  // Verificar periódicamente si el token sigue siendo válido
+  // (detecta si la sesión fue cerrada desde otro dispositivo)
+  useEffect(() => {
+    if (!user || !TokenManager.hasActiveSession()) return;
+
+    const verifyToken = async () => {
+      try {
+        await apiClient.getMe();
+      } catch (error) {
+        // Si falla (401), el token fue invalidado
+        console.warn("❌ Token invalidado desde otro dispositivo");
+
+        // Limpiar estado
+        setUser(null);
+        setAccounts([]);
+        setCards([]);
+        TokenManager.clearSession();
+
+        // Desconectar socket
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+          socketRef.current = null;
+        }
+
+        // Notificar y redirigir
+        const notification: Notification = {
+          id: `token-invalidated-${Date.now()}`,
+          type: "warning",
+          title: "Sesión cerrada",
+          message:
+            "Tu sesión fue cerrada porque iniciaste sesión desde otro dispositivo.",
+          timestamp: new Date(),
+        };
+        setNotifications((prev) => [notification, ...prev].slice(0, 20));
+
+        setTimeout(() => {
+          if (typeof window !== "undefined") {
+            window.location.href = "/";
+          }
+        }, 2000);
+      }
+    };
+
+    // Verificar cada 10 segundos (balance entre performance y prontitud)
+    const interval = setInterval(verifyToken, 10000);
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Manejar eventos de Socket.IO en tiempo real
   useEffect(() => {
@@ -704,41 +779,76 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Iniciar monitoreo de actividad y timeout de sesión
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     // Iniciar monitoreo de actividad del usuario
     const cleanupActivity = ActivityMonitor.start();
 
-    // Configurar callback para sesión expirada
-    TokenManager.onSessionExpired(() => {
-      console.warn('⏰ Sesión expirada por inactividad');
-      
+    // Configurar callback para token invalidado (401 inmediato)
+    TokenManager.onTokenInvalidated(() => {
+      console.warn("🚫 Token invalidado por el servidor (401)");
+
       // Limpiar estado completamente
       setUser(null);
       setAccounts([]);
       setCards([]);
       apiClient.setToken(null);
-      
+
       // Desconectar socket
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
       }
-      
+
       // Notificar al usuario
       const notification: Notification = {
-        id: `session-expired-${Date.now()}`,
-        type: 'warning',
-        title: 'Sesión expirada',
-        message: 'Tu sesión ha expirado por inactividad. Por favor, inicia sesión nuevamente.',
+        id: `token-invalidated-${Date.now()}`,
+        type: "error",
+        title: "Sesión cerrada",
+        message: "Tu sesión fue cerrada desde otro dispositivo.",
         timestamp: new Date(),
       };
       setNotifications((prev) => [notification, ...prev].slice(0, 20));
-      
+
+      // Redirigir inmediatamente
+      setTimeout(() => {
+        if (typeof window !== "undefined") {
+          window.location.href = "/";
+        }
+      }, 1500);
+    });
+
+    // Configurar callback para sesión expirada
+    TokenManager.onSessionExpired(() => {
+      console.warn("⏰ Sesión expirada por inactividad");
+
+      // Limpiar estado completamente
+      setUser(null);
+      setAccounts([]);
+      setCards([]);
+      apiClient.setToken(null);
+
+      // Desconectar socket
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+
+      // Notificar al usuario
+      const notification: Notification = {
+        id: `session-expired-${Date.now()}`,
+        type: "warning",
+        title: "Sesión expirada",
+        message:
+          "Tu sesión ha expirado por inactividad. Por favor, inicia sesión nuevamente.",
+        timestamp: new Date(),
+      };
+      setNotifications((prev) => [notification, ...prev].slice(0, 20));
+
       // Redirigir a login después de 2 segundos
       setTimeout(() => {
-        if (typeof window !== 'undefined') {
-          window.location.href = '/';
+        if (typeof window !== "undefined") {
+          window.location.href = "/";
         }
       }, 2000);
     });
@@ -753,13 +863,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setAccounts([]);
     setCards([]);
-    
+
     // Desconectar socket
     if (socketRef.current) {
       socketRef.current.disconnect();
       socketRef.current = null;
     }
-    
+
     // Limpiar notificaciones y eventos
     setNotifications([]);
     setEvents([]);

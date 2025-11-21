@@ -29,6 +29,7 @@ const rateLimitMap = new Map<string, RateLimitEntry>();
 type SessionCallback = () => void;
 let onSessionExpiredCallback: SessionCallback | null = null;
 let onSessionActiveCallback: SessionCallback | null = null;
+let onTokenInvalidatedCallback: SessionCallback | null = null;
 
 /**
  * Gestión de tokens en memoria
@@ -40,16 +41,16 @@ export const TokenManager = {
    */
   setToken(token: string | null) {
     authToken = token;
-    
+
     if (token) {
       this.updateActivity();
       this.startSessionMonitoring();
-      
+
       // Guardar en sessionStorage para persistir en recargas (más seguro que localStorage)
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('authToken', token);
-        sessionStorage.setItem('hasSession', 'true');
-        sessionStorage.setItem('lastActivity', Date.now().toString());
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("authToken", token);
+        sessionStorage.setItem("hasSession", "true");
+        sessionStorage.setItem("lastActivity", Date.now().toString());
       }
     } else {
       this.clearSession();
@@ -61,13 +62,13 @@ export const TokenManager = {
    */
   getToken(): string | null {
     // Si no está en memoria, intentar restaurar de sessionStorage
-    if (!authToken && typeof window !== 'undefined') {
-      const storedToken = sessionStorage.getItem('authToken');
-      const storedActivity = sessionStorage.getItem('lastActivity');
-      
+    if (!authToken && typeof window !== "undefined") {
+      const storedToken = sessionStorage.getItem("authToken");
+      const storedActivity = sessionStorage.getItem("lastActivity");
+
       if (storedToken && storedActivity) {
         const timeSinceActivity = Date.now() - parseInt(storedActivity, 10);
-        
+
         // Verificar que no haya expirado
         if (timeSinceActivity < SESSION_TIMEOUT) {
           authToken = storedToken;
@@ -79,7 +80,7 @@ export const TokenManager = {
         }
       }
     }
-    
+
     return authToken;
     return authToken;
   },
@@ -89,17 +90,17 @@ export const TokenManager = {
    */
   updateActivity() {
     lastActivity = Date.now();
-    
+
     // Actualizar en sessionStorage también
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('lastActivity', lastActivity.toString());
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("lastActivity", lastActivity.toString());
     }
-    
+
     // Resetear timeout
     if (sessionTimeout) {
       clearTimeout(sessionTimeout);
     }
-    
+
     sessionTimeout = setTimeout(() => {
       this.expireSession();
     }, SESSION_TIMEOUT);
@@ -115,7 +116,7 @@ export const TokenManager = {
 
     activityCheckInterval = setInterval(() => {
       const timeSinceLastActivity = Date.now() - lastActivity;
-      
+
       if (timeSinceLastActivity >= SESSION_TIMEOUT) {
         this.expireSession();
       }
@@ -126,9 +127,9 @@ export const TokenManager = {
    * Expira la sesión por timeout
    */
   expireSession() {
-    console.warn('⏰ Sesión expirada por inactividad');
+    console.warn("⏰ Sesión expirada por inactividad");
     this.clearSession();
-    
+
     if (onSessionExpiredCallback) {
       onSessionExpiredCallback();
     }
@@ -140,21 +141,21 @@ export const TokenManager = {
   clearSession() {
     authToken = null;
     lastActivity = 0;
-    
+
     if (sessionTimeout) {
       clearTimeout(sessionTimeout);
       sessionTimeout = null;
     }
-    
+
     if (activityCheckInterval) {
       clearInterval(activityCheckInterval);
       activityCheckInterval = null;
     }
-    
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('authToken');
-      sessionStorage.removeItem('hasSession');
-      sessionStorage.removeItem('lastActivity');
+
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("authToken");
+      sessionStorage.removeItem("hasSession");
+      sessionStorage.removeItem("lastActivity");
     }
   },
 
@@ -186,6 +187,22 @@ export const TokenManager = {
    */
   onSessionActive(callback: SessionCallback) {
     onSessionActiveCallback = callback;
+  },
+
+  /**
+   * Registra callback para token invalidado (401 del servidor)
+   */
+  onTokenInvalidated(callback: SessionCallback) {
+    onTokenInvalidatedCallback = callback;
+  },
+
+  /**
+   * Dispara el callback de token invalidado
+   */
+  notifyTokenInvalidated() {
+    if (onTokenInvalidatedCallback) {
+      onTokenInvalidatedCallback();
+    }
   },
 };
 
@@ -238,7 +255,11 @@ export const RateLimiter = {
   /**
    * Obtiene información de rate limit para una key
    */
-  getStatus(key: string): { count: number; remaining: number; resetIn: number } {
+  getStatus(key: string): {
+    count: number;
+    remaining: number;
+    resetIn: number;
+  } {
     const entry = rateLimitMap.get(key);
     const now = Date.now();
 
@@ -266,14 +287,14 @@ export const ActivityMonitor = {
    * Inicia el monitoreo de actividad del usuario
    */
   start() {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
-    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
-    
+    const events = ["mousedown", "keydown", "scroll", "touchstart"];
+
     const handleActivity = () => {
       if (TokenManager.hasActiveSession()) {
         TokenManager.updateActivity();
-        
+
         if (onSessionActiveCallback) {
           onSessionActiveCallback();
         }
@@ -297,14 +318,14 @@ export const ActivityMonitor = {
  * Migración segura de tokens existentes en localStorage
  */
 export const migrateFromLocalStorage = () => {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
 
-  const oldToken = localStorage.getItem('token');
-  
+  const oldToken = localStorage.getItem("token");
+
   if (oldToken) {
-    console.warn('⚠️ Migrando token de localStorage a memoria segura');
+    console.warn("⚠️ Migrando token de localStorage a memoria segura");
     TokenManager.setToken(oldToken);
-    localStorage.removeItem('token');
-    console.log('✅ Token migrado y localStorage limpiado');
+    localStorage.removeItem("token");
+    console.log("✅ Token migrado y localStorage limpiado");
   }
 };
