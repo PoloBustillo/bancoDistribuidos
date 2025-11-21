@@ -43,60 +43,63 @@ export default function WorkerSelector() {
   const [newWorkerName, setNewWorkerName] = useState("");
   const [useCustomUrl, setUseCustomUrl] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [scanResults, setScanResults] = useState<{ found: number; total: number } | null>(null);
+  const [scanResults, setScanResults] = useState<{
+    found: number;
+    total: number;
+  } | null>(null);
 
   // Escaneo manual al hacer clic en botón
   const handleScanWorkers = async () => {
     setScanning(true);
     setScanResults(null);
-    
+
     let foundCount = 0;
     const results = await Promise.allSettled(
       WORKER_SCAN_LIST.map(async (baseUrl) => {
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 3000);
-          
+
           const res = await fetch(`${baseUrl}/api/health`, {
             method: "GET",
             mode: "cors",
             signal: controller.signal,
           });
-          
+
           clearTimeout(timeoutId);
-          
+
           if (!res.ok) return null;
           const data = await res.json();
           if (data.status !== "OK") return null;
-          
+
           foundCount++;
           return {
             id: data.workerId || baseUrl,
             name: data.workerId || baseUrl.replace(/^https?:\/\//, ""),
             url: baseUrl,
-            color: workerColors[Math.floor(Math.random() * workerColors.length)],
+            color:
+              workerColors[Math.floor(Math.random() * workerColors.length)],
           };
         } catch {
           return null;
         }
       })
     );
-    
-    const discoveredWorkers = results
-      .filter((r) => r.status === "fulfilled" && r.value !== null)
-      .map((r: any) => r.value);
 
     let addedCount = 0;
-    discoveredWorkers.forEach((worker) => {
-      if (!workers.some((w) => w.url === worker.url)) {
-        addWorker(worker);
-        addedCount++;
+    results.forEach((result) => {
+      if (result.status === "fulfilled" && result.value !== null) {
+        const worker = result.value;
+        if (!workers.some((w) => w.url === worker.url)) {
+          addWorker(worker);
+          addedCount++;
+        }
       }
     });
 
     setScanResults({ found: foundCount, total: WORKER_SCAN_LIST.length });
     setScanning(false);
-    
+
     // Limpiar mensaje después de 5 segundos
     setTimeout(() => setScanResults(null), 5000);
   };
@@ -213,7 +216,7 @@ export default function WorkerSelector() {
         >
           ➕ Agregar Worker
         </button>
-        
+
         <button
           onClick={handleScanWorkers}
           disabled={scanning}
@@ -226,7 +229,8 @@ export default function WorkerSelector() {
       {scanResults && (
         <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
-            ✅ Escaneo completado: {scanResults.found} workers encontrados de {scanResults.total} direcciones
+            ✅ Escaneo completado: {scanResults.found} workers encontrados de{" "}
+            {scanResults.total} direcciones
           </p>
         </div>
       )}

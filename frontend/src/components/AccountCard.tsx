@@ -6,6 +6,8 @@ import { apiClient } from "@/lib/api";
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/context/ToastContext";
 import Spinner from "@/components/ui/Spinner";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { isValidEmail, getEmailErrorMessage } from "@/lib/validation";
 
 interface AccountCardProps {
   account: Account;
@@ -20,6 +22,8 @@ export default function AccountCard({ account }: AccountCardProps) {
     "AUTORIZADO"
   );
   const [sharing, setSharing] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const [users, setUsers] = useState<AccountUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -40,6 +44,19 @@ export default function AccountCard({ account }: AccountCardProps) {
 
   const handleShare = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validar email
+    const error = getEmailErrorMessage(email);
+    if (error) {
+      setEmailError(error);
+      return;
+    }
+    
+    setEmailError(null);
+    setShowConfirm(true);
+  };
+  
+  const confirmShare = async () => {
     setSharing(true);
     try {
       await apiClient.shareAccount(account.id, email, rol);
@@ -67,6 +84,7 @@ export default function AccountCard({ account }: AccountCardProps) {
       setUsers(Array.isArray(res.usuarios) ? res.usuarios : []);
 
       setEmail("");
+      setShowConfirm(false);
     } catch (error) {
       console.error("Error sharing account:", error);
       showError(
@@ -176,14 +194,30 @@ export default function AccountCard({ account }: AccountCardProps) {
               onSubmit={handleShare}
               className="space-y-3 mt-3 p-3 bg-blue-50 rounded-lg"
             >
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Correo del usuario"
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-gray-900 text-sm focus:outline-none focus:border-blue-500"
-                required
-              />
+              <div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setEmailError(null);
+                  }}
+                  onBlur={() => {
+                    if (email) {
+                      const error = getEmailErrorMessage(email);
+                      setEmailError(error);
+                    }
+                  }}
+                  placeholder="Correo del usuario"
+                  className={`w-full px-3 py-2 bg-white border rounded text-gray-900 text-sm focus:outline-none ${
+                    emailError ? "border-red-500" : "border-gray-300 focus:border-blue-500"
+                  }`}
+                  required
+                />
+                {emailError && (
+                  <p className="text-red-600 text-xs mt-1">{emailError}</p>
+                )}
+              </div>
               <select
                 value={rol}
                 onChange={(e) =>
@@ -217,6 +251,31 @@ export default function AccountCard({ account }: AccountCardProps) {
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={showConfirm}
+        onClose={() => {
+          setShowConfirm(false);
+          setSharing(false);
+        }}
+        onConfirm={confirmShare}
+        title="Confirmar compartir cuenta"
+        message={
+          <div>
+            <p className="mb-2">Estás a punto de compartir esta cuenta con:</p>
+            <div className="bg-blue-50 p-3 rounded-lg space-y-1">
+              <p className="font-semibold text-gray-900">{email}</p>
+              <p className="text-sm text-gray-600">Rol: {rol}</p>
+            </div>
+            <p className="mt-3 text-sm text-gray-600">
+              Esta persona tendrá acceso a la cuenta según los permisos del rol asignado.
+            </p>
+          </div>
+        }
+        confirmText="Compartir"
+        type="warning"
+        loading={sharing}
+      />
     </div>
   );
 }

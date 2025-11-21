@@ -6,6 +6,13 @@ import { useToast } from "@/context/ToastContext";
 import { apiClient } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import Spinner from "@/components/ui/Spinner";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import {
+  isValidAmount,
+  sanitizeAmountInput,
+  getAmountErrorMessage,
+  isLargeWithdrawal,
+} from "@/lib/validation";
 import {
   ArrowLeftIcon,
   ArrowDownTrayIcon,
@@ -19,20 +26,44 @@ export default function MovementsPage() {
   const [operation, setOperation] = useState<"deposit" | "withdraw">("deposit");
   const [accountId, setAccountId] = useState("");
   const [amount, setAmount] = useState("");
+  const [amountError, setAmountError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const selectedAccount = accounts.find((acc) => acc.id === accountId);
-  const canProceed = accountId && amount && parseFloat(amount) > 0;
+  const numAmount = parseFloat(amount);
+  const canProceed = accountId && amount && isValidAmount(amount) && !amountError;
   const hasInsufficientFunds =
     operation === "withdraw" &&
     selectedAccount &&
-    parseFloat(amount) > selectedAccount.saldo;
+    numAmount > selectedAccount.saldo;
+  const isLargeWithdrawalAmount =
+    operation === "withdraw" &&
+    selectedAccount &&
+    isLargeWithdrawal(numAmount, selectedAccount.saldo);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canProceed || hasInsufficientFunds) return;
 
+    // Validar monto
+    if (!isValidAmount(amount)) {
+      setAmountError(getAmountErrorMessage(amount) || "Monto inválido");
+      return;
+    }
+
+    // Confirmación para retiros grandes
+    if (isLargeWithdrawalAmount) {
+      setShowConfirm(true);
+      return;
+    }
+
+    await executeOperation();
+  };
+
+  const executeOperation = async () => {
     setLoading(true);
+    setShowConfirm(false);
 
     try {
       const monto = parseFloat(amount);
@@ -185,19 +216,39 @@ export default function MovementsPage() {
                   $
                 </span>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
+                  type="text"
+                  inputMode="decimal"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => {
+                    setAmount(sanitizeAmountInput(e.target.value));
+                    setAmountError("");
+                  }}
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    if (val && !isValidAmount(val)) {
+                      setAmountError(getAmountErrorMessage(val) || "Monto inválido");
+                    }
+                  }}
                   placeholder="0.00"
-                  className="w-full pl-8 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors text-lg placeholder:text-gray-600 placeholder:font-normal text-gray-900"
+                  className={`w-full pl-8 pr-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm transition-colors text-lg placeholder:text-gray-600 placeholder:font-normal text-gray-900 ${
+                    amountError
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-gray-300 focus:border-blue-500 hover:border-gray-400"
+                  }`}
                   required
                 />
               </div>
+              {amountError && (
+                <p className="mt-2 text-sm text-red-600">{amountError}</p>
+              )}
               {hasInsufficientFunds && (
                 <p className="mt-2 text-sm text-red-600">
                   Fondos insuficientes para realizar este retiro
+                </p>
+              )}
+              {isLargeWithdrawalAmount && !hasInsufficientFunds && (
+                <p className="mt-2 text-sm text-amber-600 font-medium">
+                  ⚠️ Este es un retiro considerable, se requerirá confirmación
                 </p>
               )}
             </div>
@@ -255,6 +306,55 @@ export default function MovementsPage() {
               : "Los retiros están sujetos al saldo disponible en tu cuenta."}
           </p>
         </div>
+
+        {/* Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showConfirm}
+          onClose={() => setShowConfirm(false)}
+          onConfirm={executeOperation}
+          title="Confirmar Retiro Grande"
+          message={
+            <div className="space-y-3">
+              <p>
+                Estás a punto de retirar{" "}
+                <span className="font-bold text-orange-700">
+                  ${numAmount.toFixed(2)}
+                </span>
+                {selectedAccount && (
+                  <>
+                    {" "}
+                    de la cuenta{" "}
+                    <span className="font-semibold">
+                      {selectedAccount.nombre}
+                    </span>
+                    .
+                  </>
+                )}
+              </p>
+              {selectedAccount && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm">
+                  <p className="text-orange-900">
+                    <span className="font-semibold">Saldo actual:</span> $
+                    {selectedAccount.saldo.toFixed(2)}
+                  </p>
+                  <p className="text-orange-900">
+                    <span className="font-semibold">Saldo después:</span> $
+                    {(selectedAccount.saldo - numAmount).toFixed(2)}
+                  </p>
+                  <p className="text-orange-800 font-medium mt-2">
+                    {numAmount > selectedAccount.saldo * 0.5
+                      ? "⚠️ Retiraras más del 50% de tu saldo"
+                      : "⚠️ Este retiro supera los $10,000"}
+                  </p>
+                </div>
+              )}
+            </div>
+          }
+          confirmText="Confirmar Retiro"
+          cancelText="Cancelar"
+          type="warning"
+          loading={loading}
+        />
       </div>
     </div>
   );

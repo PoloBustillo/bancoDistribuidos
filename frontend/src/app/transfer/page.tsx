@@ -7,6 +7,11 @@ import { apiClient } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import Spinner from "@/components/ui/Spinner";
 import {
+  isValidAmount,
+  sanitizeAmountInput,
+  getAmountErrorMessage,
+} from "@/lib/validation";
+import {
   ArrowLeftIcon,
   ArrowRightCircleIcon,
 } from "@heroicons/react/24/outline";
@@ -18,16 +23,24 @@ export default function TransferPage() {
   const [fromAccountId, setFromAccountId] = useState("");
   const [toAccountNumber, setToAccountNumber] = useState("");
   const [amount, setAmount] = useState("");
+  const [amountError, setAmountError] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const selectedAccount = accounts.find((acc) => acc.id === fromAccountId);
   const canProceed =
-    fromAccountId && toAccountNumber && amount && parseFloat(amount) > 0;
+    fromAccountId && toAccountNumber && amount && isValidAmount(amount) && !amountError;
 
   const handleShowConfirmation = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validar monto
+    if (!isValidAmount(amount)) {
+      setAmountError(getAmountErrorMessage(amount) || "Monto inválido");
+      return;
+    }
+    
     if (canProceed) {
       setShowConfirmation(true);
     }
@@ -172,16 +185,31 @@ export default function TransferPage() {
                     $
                   </span>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
+                    type="text"
+                    inputMode="decimal"
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    onChange={(e) => {
+                      setAmount(sanitizeAmountInput(e.target.value));
+                      setAmountError("");
+                    }}
+                    onBlur={(e) => {
+                      const val = e.target.value;
+                      if (val && !isValidAmount(val)) {
+                        setAmountError(getAmountErrorMessage(val) || "Monto inválido");
+                      }
+                    }}
                     placeholder="0.00"
-                    className="w-full pl-8 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors text-lg placeholder:text-gray-600 placeholder:font-normal text-gray-900"
+                    className={`w-full pl-8 pr-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm transition-colors text-lg placeholder:text-gray-600 placeholder:font-normal text-gray-900 ${
+                      amountError
+                        ? "border-red-500 focus:border-red-500"
+                        : "border-gray-300 focus:border-blue-500 hover:border-gray-400"
+                    }`}
                     required
                   />
                 </div>
+                {amountError && (
+                  <p className="mt-2 text-sm text-red-600">{amountError}</p>
+                )}
                 {selectedAccount &&
                   amount &&
                   parseFloat(amount) > selectedAccount.saldo && (

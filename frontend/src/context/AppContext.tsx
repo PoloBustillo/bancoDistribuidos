@@ -171,7 +171,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     return getDefaultWorkers();
   });
-  
+
   const [workersScanned, setWorkersScanned] = useState(false);
 
   const [selectedWorker, setSelectedWorkerState] = useState<Worker>(() => {
@@ -215,7 +215,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Escaneo automático de workers al iniciar
   useEffect(() => {
     if (typeof window === "undefined" || workersScanned) return;
-    
+
     const scanWorkers = async () => {
       const WORKER_SCAN_LIST = [
         // Localhost
@@ -237,24 +237,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000);
-            
+
             const res = await fetch(`${baseUrl}/api/health`, {
               method: "GET",
               mode: "cors",
               signal: controller.signal,
             });
-            
+
             clearTimeout(timeoutId);
-            
+
             if (!res.ok) return null;
             const data = await res.json();
             if (data.status !== "OK") return null;
-            
+
             return {
               id: data.workerId || `worker-${baseUrl}`,
               name: data.workerId || baseUrl.replace(/^https?:\/\//, ""),
               url: baseUrl,
-              color: ["#2563eb", "#22c55e", "#a21caf", "#f59e42"][Math.floor(Math.random() * 4)],
+              color: ["#2563eb", "#22c55e", "#a21caf", "#f59e42"][
+                Math.floor(Math.random() * 4)
+              ],
             };
           } catch {
             return null;
@@ -272,31 +274,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const newWorkers = discoveredWorkers.filter(
             (dw) => !prev.some((w) => w.url === dw.url)
           );
-          
+
           if (newWorkers.length === 0) return prev;
-          
+
           addedCount = newWorkers.length;
           const updated = [...prev, ...newWorkers];
           localStorage.setItem("workers", JSON.stringify(updated));
-          console.log(`🔍 Workers descubiertos automáticamente: ${newWorkers.length}`, newWorkers);
-          
+          console.log(
+            `🔍 Workers descubiertos automáticamente: ${newWorkers.length}`,
+            newWorkers
+          );
+
           return updated;
         });
 
         // Notificar al usuario después de un pequeño delay
         if (addedCount > 0) {
           setTimeout(() => {
-            setNotifications((prev) => [{
+            const notification: Notification = {
               id: `worker-scan-${Date.now()}`,
               type: "info",
               title: "Workers detectados",
               message: `Se encontraron ${discoveredWorkers.length} worker(s) disponible(s)`,
               timestamp: new Date(),
-            }, ...prev].slice(0, 20));
+            };
+            setNotifications((prev) => [notification, ...prev].slice(0, 20));
           }, 500);
         }
       }
-      
+
       setWorkersScanned(true);
     };
 
