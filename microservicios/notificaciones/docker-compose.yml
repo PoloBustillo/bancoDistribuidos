@@ -1,0 +1,27 @@
+version: '3.8'
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"   # RabbitMQ (AMQP)
+      - "15672:15672" # RabbitMQ Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+
+  notificaciones:
+    build:
+      context: .
+    command: sh -c "npm run build && npm start"
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      RABBITMQ_URL: amqp://user:password@rabbitmq:5672
+      RESEND_API_KEY: re_9tqqBrPs_8ESmesJHa6D4G6UdDv8Zfo53
+      RESEND_FROM: "Banco <no-reply@psicologopuebla.com>"
+    depends_on:
+      - rabbitmq
+    ports:
+      - "4001:4001" # HTTP API
+      - "50051:50051" # gRPC

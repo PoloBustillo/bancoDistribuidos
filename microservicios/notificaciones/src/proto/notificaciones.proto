@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package notificaciones;
+
+service NotificacionesService {
+  rpc EnviarNotificacion (NotificacionRequest) returns (NotificacionResponse);
+}
+
+message NotificacionRequest {
+  string to = 1;
+  string subject = 2;
+  string message = 3;
+}
+
+message NotificacionResponse {
+  bool success = 1;
+  string error = 2;
+}
