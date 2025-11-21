@@ -30,7 +30,17 @@ app.listen(PORT, () => {
 startGrpcServer(Number(process.env.GRPC_PORT) || 50051);
 
 // Iniciar consumidor de RabbitMQ
-consumeNotifications(async ({ to, subject, message }: { to: string; subject: string; message: string }) => {
-  await sendNotification(to, subject, message);
-  console.log(`Notificación enviada a ${to} (RabbitMQ)`);
-});
+consumeNotifications(
+  async ({
+    to,
+    subject,
+    message,
+  }: {
+    to: string;
+    subject: string;
+    message: string;
+  }) => {
+    await sendNotification(to, subject, message);
+    console.log(`Notificación enviada a ${to} (RabbitMQ)`);
+  }
+);
