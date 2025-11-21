@@ -94,6 +94,10 @@ export class LockManager {
     );
   }
 
+  obtenerLockPorRecurso(claveRecurso: string): LockInfo | undefined {
+    return this.locksActivos.get(claveRecurso);
+  }
+
   obtenerTodos(): Array<{
     recurso: string;
     workerId: string;

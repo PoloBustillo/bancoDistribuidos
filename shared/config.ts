@@ -31,6 +31,10 @@ export const CONFIG = {
     MIN_PASSWORD_LENGTH: 8,
     VERIFICATION_CODE_LENGTH: 6,
     LAST_DIGITS_LENGTH: 4,
+    WORKER_TOKEN_SECRET:
+      process.env.WORKER_TOKEN_SECRET ||
+      "default-worker-secret-change-in-production",
+    WORKER_TOKEN_EXPIRATION: "24h",
   },
 
   // 🏦 Límites Bancarios

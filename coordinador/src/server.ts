@@ -49,6 +49,22 @@ httpServer.on("request", (req, res) => {
         timestamp: new Date().toISOString(),
       })
     );
+  } else if (
+    req.url?.startsWith("/api/generate-token/") &&
+    req.method === "GET"
+  ) {
+    // Endpoint para generar tokens - SOLO PARA DESARROLLO/SETUP
+    // En producción, esto debería estar protegido con autenticación de admin
+    const workerId = req.url.split("/api/generate-token/")[1];
+    if (workerId) {
+      const token = coordinator.generarTokenWorker(workerId);
+      logger.info(`Token generado para ${workerId}`, { workerId });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ workerId, token }));
+    } else {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "workerId requerido" }));
+    }
   } else {
     logger.warn("404 Not Found", { url: req.url, method: req.method });
     res.writeHead(404, { "Content-Type": "application/json" });
@@ -66,9 +82,13 @@ httpServer.listen(PORT, HOST, () => {
   logger.coordinator(`🏠 Host: ${HOST}`);
   logger.coordinator(`🔌 WebSocket: ws://${HOST}:${PORT}`);
   logger.coordinator(`\n📊 Endpoints HTTP:`);
-  logger.coordinator(`   GET /api/stats  - Estadísticas de locks`);
+  logger.coordinator(`   GET /api/stats  - Estadísticas de locks y deadlocks`);
   logger.coordinator(`   GET /api/health - Estado del servidor`);
-  logger.coordinator("\n✅ Coordinador listo para recibir workers");
+  logger.coordinator(
+    `   GET /api/generate-token/:workerId - Generar token (solo setup)`
+  );
+  logger.coordinator("\n🔐 Autenticación de workers habilitada");
+  logger.coordinator("✅ Coordinador listo para recibir workers autenticados");
   logger.coordinator("=".repeat(60) + "\n");
 });
 

@@ -39,6 +39,7 @@ export class WorkerClient {
   private puerto: number;
   private coordinadorUrl: string;
   private conectado: boolean = false;
+  private token: string | null = null;
 
   // 🎓 ESTADO LOCAL: Locks activos y pendientes
   private locksActivos: Map<string, string[]> = new Map();
@@ -59,11 +60,25 @@ export class WorkerClient {
   }
 
   async conectar(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       console.log(`🔌 Conectando al coordinador: ${this.coordinadorUrl}`);
 
+      // Obtener token de autenticación
+      try {
+        const response = await fetch(
+          `${this.coordinadorUrl}/api/generate-token/${this.workerId}`
+        );
+        const data = await response.json();
+        this.token = data.token;
+        console.log(`🔐 Token de autenticación obtenido para ${this.workerId}`);
+      } catch (error) {
+        console.error(`❌ Error obteniendo token: ${error}`);
+        reject(new Error("No se pudo obtener token de autenticación"));
+        return;
+      }
+
       // ========================================
-      // 🎓 CONEXIÓN CON COORDINADOR
+      // 🏛️ CONEXIÓN CON COORDINADOR
       // ========================================
       // Socket.IO con WebSockets para comunicación
       // bidireccional en tiempo real.
@@ -74,6 +89,9 @@ export class WorkerClient {
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 2000,
+        auth: {
+          token: this.token,
+        },
       });
 
       this.socket.on("connect", () => {
@@ -133,6 +151,7 @@ export class WorkerClient {
       requestId: uuidv4(),
       puerto: this.puerto,
       capacidad: 50,
+      token: this.token || undefined,
     };
 
     this.socket.emit(TipoMensaje.REGISTER_WORKER, msg);

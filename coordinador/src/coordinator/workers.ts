@@ -3,16 +3,36 @@ import { v4 as uuidv4 } from "uuid";
 import { TipoMensaje } from "@banco/shared/types";
 import { logger } from "@banco/shared/logger";
 import type { WorkerInfo } from "./types";
+import { WorkerAuth } from "./auth";
 
 export class WorkerManager {
   private trabajadores: Map<string, WorkerInfo> = new Map();
   private readonly HEARTBEAT_TIMEOUT: number;
+  private auth: WorkerAuth;
 
   constructor(heartbeatTimeout: number) {
     this.HEARTBEAT_TIMEOUT = heartbeatTimeout;
+    this.auth = new WorkerAuth();
   }
 
   registrar(socket: Socket, msg: any): void {
+    // Validar token de autenticación
+    const token = msg.token || socket.handshake.auth?.token;
+    const tokenValido = token && this.auth.validarToken(token, msg.workerId);
+
+    if (!tokenValido) {
+      logger.warn(
+        `❌ Intento de registro rechazado por token inválido: ${msg.workerId}`,
+        { workerId: msg.workerId, puerto: msg.puerto, socketId: socket.id }
+      );
+      socket.emit("auth-error", {
+        error: "Token de autenticación inválido",
+        workerId: msg.workerId,
+      });
+      socket.disconnect(true);
+      return;
+    }
+
     const worker: WorkerInfo = {
       workerId: msg.workerId,
       socketId: socket.id,
@@ -21,10 +41,11 @@ export class WorkerManager {
       ultimoHeartbeat: Date.now(),
       locksActivos: 0,
       capacidad: msg.capacidad,
+      autenticado: true,
     };
     this.trabajadores.set(msg.workerId, worker);
     logger.worker(
-      `✅ Trabajador registrado: ${msg.workerId} (puerto ${msg.puerto})`,
+      `✅ Trabajador autenticado y registrado: ${msg.workerId} (puerto ${msg.puerto})`,
       { workerId: msg.workerId, puerto: msg.puerto, capacidad: msg.capacidad }
     );
     socket.emit(TipoMensaje.WORKER_REGISTERED, {
@@ -37,6 +58,11 @@ export class WorkerManager {
 
   obtener(workerId: string): WorkerInfo | undefined {
     return this.trabajadores.get(workerId);
+  }
+
+  estaAutenticado(workerId: string): boolean {
+    const worker = this.trabajadores.get(workerId);
+    return worker?.autenticado ?? false;
   }
 
   actualizarHeartbeat(msg: any): void {
@@ -100,5 +126,19 @@ export class WorkerManager {
 
   get tamaño(): number {
     return this.trabajadores.size;
+  }
+
+  /**
+   * Genera un token para un worker autorizado (usar en setup inicial)
+   */
+  generarToken(workerId: string): string {
+    return this.auth.generarToken(workerId);
+  }
+
+  /**
+   * Limpia tokens expirados periódicamente
+   */
+  limpiarTokensExpirados(): void {
+    this.auth.limpiarTokensExpirados();
   }
 }

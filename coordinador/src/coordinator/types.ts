@@ -15,6 +15,7 @@ export interface LockQueueEntry {
   request: LockRequest;
   socketId: string;
   timestamp: number;
+  reintentos: number;
 }
 
 export interface WorkerInfo {
@@ -25,4 +26,5 @@ export interface WorkerInfo {
   ultimoHeartbeat: number;
   locksActivos: number;
   capacidad: number;
+  autenticado: boolean;
 }

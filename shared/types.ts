@@ -37,6 +37,7 @@ export interface RegisterWorker extends MensajeBase {
   tipo: TipoMensaje.REGISTER_WORKER;
   puerto: number;
   capacidad: number;
+  token?: string; // Token de autenticación HMAC
 }
 
 export interface LockRequest extends MensajeBase {
