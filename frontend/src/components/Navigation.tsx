@@ -3,7 +3,7 @@
 import { useApp } from "@/context/AppContext";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import WorkerSelector from "./WorkerSelector";
 import {
   HomeIcon,
@@ -32,6 +32,11 @@ export default function Navigation() {
   const [showWorkerDropdown, setShowWorkerDropdown] = useState(false);
   const [showWorkerModal, setShowWorkerModal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  // Cierra el dropdown de workers si la lista cambia
+  useEffect(() => {
+    setShowWorkerDropdown(false);
+  }, [workers.length]);
 
   const navLinks = [
     { href: "/", label: "Inicio", icon: HomeIcon },
