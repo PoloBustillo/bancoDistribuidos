@@ -2,8 +2,8 @@ name: Docker Build & Deploy
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:  # Permite ejecución manual
+    branches: [main]
+  workflow_dispatch: # Permite ejecución manual
 
 env:
   REGISTRY: ghcr.io
@@ -18,11 +18,11 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     strategy:
       matrix:
         service: [coordinador, worker]
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -63,7 +63,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -71,17 +71,17 @@ jobs:
       - name: Create SSH key file
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/deploy_key
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
       - name: Deploy to server
         env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST << 'EOF'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no $SSH_USERNAME@$SSH_HOST << 'EOF'
             set -e
             
             # ========================================

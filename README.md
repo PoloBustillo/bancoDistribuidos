@@ -38,6 +38,7 @@ cd worker && bun dev
 ```
 
 **Documentación completa:**
+
 - 🐋 [Deployment con Docker + GitHub Actions](./DEPLOYMENT-GITHUB-ACTIONS.md)
 - 🔄 [Migración de PM2 a Docker](./MIGRATION-PM2-TO-DOCKER.md)
 - 📋 [Deployment Original](./DEPLOYMENT-FINAL.md)
