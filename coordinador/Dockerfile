@@ -3,8 +3,8 @@ FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
-# Copiar package.json del workspace root para resolver workspace dependencies
-COPY package.json bun.lockb* ./
+# Crear package.json temporal solo con workspaces necesarios (sin lockfile)
+RUN echo '{"name":"banco-distribuido","workspaces":["shared","coordinador"]}' > package.json
 
 # Copiar shared workspace (requerido por coordinador)
 COPY shared ./shared
@@ -12,8 +12,8 @@ COPY shared ./shared
 # Copiar coordinador
 COPY coordinador ./coordinador
 
-# Instalar desde root (Bun crea symlinks automáticamente a cada workspace)
-RUN bun install --production --filter=coordinador
+# Instalar solo dependencias de coordinador (sin lockfile, más lento pero funciona)
+RUN bun install --production
 
 # Stage 2: Production
 FROM oven/bun:1-alpine
