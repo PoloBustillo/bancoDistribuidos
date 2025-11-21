@@ -1,0 +1,111 @@
+version: '3.8'
+
+# NOTA: Esta versión usa una base de datos PostgreSQL EXTERNA
+# Para usar PostgreSQL en Docker, usa docker-compose.full.yml
+
+services:
+  # Coordinador
+  coordinador:
+    build:
+      context: .
+      dockerfile: coordinador/Dockerfile
+    container_name: banco-coordinador
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - banco-network
+
+  # Worker 1
+  worker-1:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    container_name: banco-worker-1
+    environment:
+      PORT: 3001
+      COORDINADOR_URL: http://coordinador:4000
+      # DATABASE_URL debe apuntar a la BD externa del servidor
+      DATABASE_URL: ${DATABASE_URL}
+      NODE_ENV: production
+    ports:
+      - "3001:3001"
+    depends_on:
+      coordinador:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - banco-network
+    # Usar host network si la BD está en localhost del servidor
+    # network_mode: "host"  # Descomentar si DATABASE_URL usa localhost
+
+  # Worker 2
+  worker-2:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    container_name: banco-worker-2
+    environment:
+      PORT: 3002
+      COORDINADOR_URL: http://coordinador:4000
+      DATABASE_URL: ${DATABASE_URL}
+      NODE_ENV: production
+    ports:
+      - "3002:3002"
+    depends_on:
+      coordinador:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - banco-network
+
+  # Worker 3
+  worker-3:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    container_name: banco-worker-3
+    environment:
+      PORT: 3003
+      COORDINADOR_URL: http://coordinador:4000
+      DATABASE_URL: ${DATABASE_URL}
+      NODE_ENV: production
+    ports:
+      - "3003:3003"
+    depends_on:
+      coordinador:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - banco-network
+
+networks:
+  banco-network:
+    driver: bridge

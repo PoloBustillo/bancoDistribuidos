@@ -4,10 +4,7 @@ generator client {
 
 datasource db {
     provider = "postgresql"
-    // Connection URLs are no longer supported in schema files.
-    // Move your connection string for Migrate to prisma.config.ts
-    // and pass adapter/accelerateUrl to PrismaClient at runtime.
-    // See: https://pris.ly/d/config-datasource
+    url      = env("DATABASE_URL")
 }
 
 enum EstadoCuenta {

@@ -38,8 +38,11 @@ httpServer.on("request", (req, res) => {
     logger.info("GET /api/stats", { url: req.url, method: req.method });
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(coordinator.getEstadisticas(), null, 2));
-  } else if (req.url === "/api/health" && req.method === "GET") {
-    logger.info("GET /api/health", { url: req.url, method: req.method });
+  } else if (
+    (req.url === "/api/health" || req.url === "/health") &&
+    req.method === "GET"
+  ) {
+    logger.info("GET /health", { url: req.url, method: req.method });
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify({

@@ -46,18 +46,21 @@ Un sistema bancario distribuido que implementa el patrón **Coordinador-Trabajad
 ## ✨ Características Principales
 
 ### 🔐 Autenticación Distribuida
+
 - ✅ **JWT tokens** compartidos entre workers
 - ✅ **Sesión única**: Login en un worker invalida sesiones en otros (configurable)
 - ✅ **Base de datos compartida**: Todos los workers ven las mismas sesiones
 - ✅ **SINGLE_SESSION mode**: `true` = 1 sesión por usuario, `false` = múltiples dispositivos
 
 ### 💰 Operaciones Bancarias con Locks
+
 - ✅ **Depósitos**: Con lock de cuenta individual
 - ✅ **Retiros**: Validación de saldo + lock
 - ✅ **Transferencias**: Lock de 2 cuentas ordenadas (previene deadlock)
 - ✅ **Consulta saldo**: Sin locks (lectura simple)
 
 ### 🔒 Sistema de Locks Distribuidos
+
 - ✅ **Coordinador central**: Gestiona todos los locks
 - ✅ **Cola de prioridad**: BAJA, NORMAL, ALTA, CRÍTICA
 - ✅ **Timeouts automáticos**: Locks expiran en 30s
@@ -65,6 +68,7 @@ Un sistema bancario distribuido que implementa el patrón **Coordinador-Trabajad
 - ✅ **Prevención de deadlocks**: Ordenamiento consistente de recursos
 
 ### 🛡️ Seguridad Avanzada
+
 - ✅ **Tokens en sessionStorage**: Más seguro que localStorage (se borran al cerrar navegador)
 - ✅ **Timeout automático**: Sesión expira tras 30 min de inactividad
 - ✅ **Rate limiting**: Máximo 60 peticiones/minuto por endpoint
@@ -73,35 +77,35 @@ Un sistema bancario distribuido que implementa el patrón **Coordinador-Trabajad
 - ✅ **Persistencia en recargas**: La sesión NO se pierde al refrescar
 - ✅ **Migración segura**: Limpieza automática de tokens antiguos
 
-📖 **[Ver documentación completa de seguridad](frontend/SECURITY.md)**  
+📖 **[Ver documentación completa de seguridad](frontend/SECURITY.md)**
 
-│  • Cola de espera con prioridades                          │✅ **Beneficiarios**: Gestión de contactos frecuentes  
+│ • Cola de espera con prioridades │✅ **Beneficiarios**: Gestión de contactos frecuentes
 
-│  • Detección de deadlocks                                  │✅ **Notificaciones**: Sistema de alertas con prioridades  
+│ • Detección de deadlocks │✅ **Notificaciones**: Sistema de alertas con prioridades
 
-│  • Monitoreo de salud de trabajadores                      │✅ **Pagos programados**: Transferencias recurrentes automáticas  
+│ • Monitoreo de salud de trabajadores │✅ **Pagos programados**: Transferencias recurrentes automáticas
 
-└──────────────────┬──────────────────────────────────────────┘✅ **Límites de operación**: Control de transacciones diarias  
+└──────────────────┬──────────────────────────────────────────┘✅ **Límites de operación**: Control de transacciones diarias
 
-                   │✅ **Sistema de bloqueos distribuido** para evitar race conditions  
+                   │✅ **Sistema de bloqueos distribuido** para evitar race conditions
 
-        ┌──────────┼──────────┐✅ **Transacciones atómicas** entre cuentas (ACID)  
+        ┌──────────┼──────────┐✅ **Transacciones atómicas** entre cuentas (ACID)
 
-        │          │          │✅ **Log de auditoría** completo de todas las operaciones  
+        │          │          │✅ **Log de auditoría** completo de todas las operaciones
 
-        ▼          ▼          ▼✅ **API REST** documentada con Swagger/OpenAPI  
+        ▼          ▼          ▼✅ **API REST** documentada con Swagger/OpenAPI
 
-   ┌────────┐ ┌────────┐ ┌────────┐✅ **WebSockets (Socket.IO)** para comunicación en tiempo real  
+┌────────┐ ┌────────┐ ┌────────┐✅ **WebSockets (Socket.IO)** para comunicación en tiempo real
 
-   │ WORKER │ │ WORKER │ │ WORKER │✅ **Multi-cliente simultáneo**: Múltiples clientes conectados a la vez  
+│ WORKER │ │ WORKER │ │ WORKER │✅ **Multi-cliente simultáneo**: Múltiples clientes conectados a la vez
 
-   │  3001  │ │  3002  │ │  3003  │✅ **Sincronización en tiempo real**: Todos ven los cambios instantáneamente  
+│ 3001 │ │ 3002 │ │ 3003 │✅ **Sincronización en tiempo real**: Todos ven los cambios instantáneamente
 
-   └────────┘ └────────┘ └────────┘✅ **Documentación interactiva**: Swagger UI para probar la API  
+└────────┘ └────────┘ └────────┘✅ **Documentación interactiva**: Swagger UI para probar la API
 
-        │          │          │✅ **Frontend interactivo** con React  
+        │          │          │✅ **Frontend interactivo** con React
 
-        └──────────┼──────────┘✅ **Código 100% en español**  
+        └──────────┼──────────┘✅ **Código 100% en español**
 
                    │
 
@@ -115,7 +119,7 @@ Un sistema bancario distribuido que implementa el patrón **Coordinador-Trabajad
 
           └────────────────┘│         FRONTEND (React)                │
 
-```│  - Gestión de cuentas                   │
+````│ - Gestión de cuentas                   │
 
 │  - Formulario de transacciones          │
 
@@ -157,7 +161,7 @@ Un sistema bancario distribuido que implementa el patrón **Coordinador-Trabajad
 
    - Worker1 → Coordinador: LOCK_RELEASE [CTA-A, CTA-B]└─────────────────────────────────────────┘
 
-```
+````
 
 5. Coordinador libera locks:
 
@@ -165,7 +169,7 @@ Un sistema bancario distribuido que implementa el patrón **Coordinador-Trabajad
 
    - Concede locks a siguiente en fila
 
-```### Backend
+````### Backend
 
 - **Node.js** - Runtime de JavaScript en servidor
 
@@ -295,7 +299,7 @@ PORT=3003 WORKER_ID=worker-3 bun run dev
 
 | `HEARTBEAT` | Señal de vida (cada 3s) |cd frontend && npm install && cd ..
 
-```
+````
 
 #### Mensajes Coordinador → Worker
 
@@ -319,31 +323,31 @@ PORT=3003 WORKER_ID=worker-3 bun run dev
 
 cd frontend && npm start
 
-```typescript```
+`typescript`
 
 // Worker solicita lock para transferencia
 
 {✅ Backend: http://localhost:3001
 
-  tipo: "LOCK_REQUEST",✅ Frontend: http://localhost:3000
+tipo: "LOCK_REQUEST",✅ Frontend: http://localhost:3000
 
-  workerId: "worker-1",✅ **Swagger API Docs**: http://localhost:3001/api-docs
+workerId: "worker-1",✅ **Swagger API Docs**: http://localhost:3001/api-docs
 
-  requestId: "uuid-123",
+requestId: "uuid-123",
 
-  recursos: [## 📚 Documentación de la API (Swagger)
+recursos: [## 📚 Documentación de la API (Swagger)
 
     { tipo: "CUENTA", id: "cuenta-abc" },
 
     { tipo: "CUENTA", id: "cuenta-xyz" }El sistema incluye documentación interactiva de la API usando **Swagger/OpenAPI 3.0**.
 
-  ],
+],
 
-  prioridad: 1,  // 0=BAJA, 1=NORMAL, 2=ALTA, 3=CRITICA### Acceder a Swagger UI
+prioridad: 1, // 0=BAJA, 1=NORMAL, 2=ALTA, 3=CRITICA### Acceder a Swagger UI
 
-  timeout: 10000,  // 10 segundos
+timeout: 10000, // 10 segundos
 
-  operacion: "transferencia"Una vez que el backend esté corriendo, visita:
+operacion: "transferencia"Una vez que el backend esté corriendo, visita:
 
 }
 
@@ -407,8 +411,10 @@ cd frontend && npm start
 
 El spec JSON completo está disponible en:
 ```
+
 GET http://localhost:3001/api-docs.json
-```
+
+````
 
 Puedes importar este JSON en herramientas como Postman, Insomnia, o cualquier cliente que soporte OpenAPI 3.0.## 📊 Datos de Ejemplo
 
@@ -437,9 +443,9 @@ El sistema implementa:
 
 ## 🚀 Deployment
 
-### Deployment Automático con GitHub Actions
+### 🐳 Deployment con Docker (Recomendado)
 
-El proyecto incluye deployment automático usando **GitHub Actions** y **appleboy/ssh-action**:
+El proyecto incluye deployment automático usando **Docker** + **GitHub Actions**:
 
 1. **Configura los GitHub Secrets** (Settings → Secrets → Actions):
    - `SSH_HOST`: IP o dominio de tu servidor
@@ -452,60 +458,93 @@ El proyecto incluye deployment automático usando **GitHub Actions** y **applebo
    git add .
    git commit -m "feat: nueva funcionalidad"
    git push origin main
-   ```
+````
 
 3. **GitHub Actions** automáticamente:
    - 📦 Clona/actualiza el código en el servidor
-   - 🔧 Instala dependencias con Bun
+   - � Construye imágenes Docker optimizadas
    - 🗄️ Ejecuta migraciones de Prisma
-   - 🚀 Inicia Coordinador (puerto 4000) y 3 Workers (3001, 3002, 3003)
-   - ✅ Verifica health de los servicios
+   - 🚀 Inicia contenedores:
+     - PostgreSQL (puerto 5432)
+     - Coordinador (puerto 4000)
+     - 3 Workers (puertos 3001, 3002, 3003)
+     - Backup automático (2 AM diario)
+   - ✅ Verifica health de todos los servicios
+   - 🔄 Rollback automático si algo falla
 
-### Deployment Manual
-
-Usa el script incluido:
+### Inicio Rápido con Docker
 
 ```bash
-# Dar permisos de ejecución
-chmod +x deploy.sh
+# 1. Clonar repositorio
+git clone https://github.com/PoloBustillo/bancoDistribuidos.git
+cd bancoDistribuidos
 
-# Deployment local (en el servidor)
-./deploy.sh
+# 2. Configurar variables de entorno
+cp .env.example .env
+nano .env  # Editar DB_PASSWORD y JWT_SECRET
 
-# Deployment remoto (desde tu máquina)
-./deploy.sh --remote tu-servidor.com root
+# 3. Iniciar todos los servicios
+docker compose up -d
+
+# 4. Ver logs en tiempo real
+docker compose logs -f
+
+# 5. Ver estado de contenedores
+docker compose ps
 ```
 
-### Gestión con PM2
+### Gestión con Docker Compose
 
 ```bash
-# Ver todos los procesos
-pm2 list
+# Ver todos los contenedores
+docker compose ps
 
-# Ver logs en tiempo real
-pm2 logs
+# Ver logs específicos
+docker compose logs coordinador
+docker compose logs worker-1
 
-# Reiniciar servicios
-pm2 restart all
+# Reiniciar un servicio
+docker compose restart worker-2
 
-# Monitor en tiempo real
-pm2 monit
+# Detener todo
+docker compose down
 
-# Detener todos
-pm2 stop all
+# Reconstruir imágenes
+docker compose build --no-cache
+docker compose up -d
+
+# Ver recursos consumidos
+docker stats
+```
+
+### Backups Automáticos
+
+- 💾 Backups diarios a las 2 AM
+- 📦 Guardados en `./backups/`
+- 🗓️ Retención: 7 días, 4 semanas, 6 meses
+
+```bash
+# Backup manual
+bash scripts/backup-manual.sh
+
+# Restaurar backup
+bash scripts/restore-backup.sh backups/backup_20241121.sql.gz
 ```
 
 ### Arquitectura de Deployment
 
 ```
-GitHub Push → GitHub Actions → SSH al Servidor → PM2
+GitHub Push → GitHub Actions → SSH al Servidor → Docker Compose
+                                                    ├── postgres:5432
+                                                    ├── postgres-backup
                                                     ├── coordinador:4000
-                                                    ├── worker-3001:3001
-                                                    ├── worker-3002:3002
-                                                    └── worker-3003:3003
+                                                    ├── worker-1:3001
+                                                    ├── worker-2:3002
+                                                    └── worker-3:3003
 ```
 
-📚 **Documentación completa**: Ver [DEPLOYMENT.md](./DEPLOYMENT.md)
+📚 **Documentación completa Docker**: Ver [DOCKER-SETUP.md](./DOCKER-SETUP.md)  
+📚 **Deployment manual (sin Docker)**: Ver [DEPLOYMENT.md](./DEPLOYMENT.md)
 
 ## 🎓 Conceptos Aprendidos
 
@@ -517,9 +556,8 @@ GitHub Push → GitHub Actions → SSH al Servidor → PM2
 ✅ Desarrollo full-stack  
 ✅ **CI/CD con GitHub Actions**  
 ✅ **Deployment automatizado con SSH**  
-✅ **Gestión de procesos con PM2**  
+✅ **Gestión de procesos con PM2**
 
 ---
 
 **¡Explora los sistemas distribuidos!** 🚀
-

@@ -1,0 +1,162 @@
+version: '3.8'
+
+# NOTA: Esta versión incluye PostgreSQL en Docker
+# Úsala solo si NO tienes una base de datos externa
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: banco-postgres
+    environment:
+      POSTGRES_DB: banco
+      POSTGRES_USER: banco_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-banco_password_2024}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U banco_user -d banco"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - banco-network
+
+  # Backup automático de PostgreSQL
+  postgres-backup:
+    image: prodrigestivill/postgres-backup-local:16
+    container_name: banco-postgres-backup
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: banco
+      POSTGRES_USER: banco_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-banco_password_2024}
+      SCHEDULE: "0 2 * * *"  # 2 AM todos los días
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - banco-network
+
+  # Coordinador
+  coordinador:
+    build:
+      context: .
+      dockerfile: coordinador/Dockerfile
+    container_name: banco-coordinador
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - banco-network
+
+  # Worker 1
+  worker-1:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    container_name: banco-worker-1
+    environment:
+      PORT: 3001
+      COORDINADOR_URL: http://coordinador:4000
+      DATABASE_URL: postgresql://banco_user:${DB_PASSWORD:-banco_password_2024}@postgres:5432/banco
+      NODE_ENV: production
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      coordinador:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - banco-network
+
+  # Worker 2
+  worker-2:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    container_name: banco-worker-2
+    environment:
+      PORT: 3002
+      COORDINADOR_URL: http://coordinador:4000
+      DATABASE_URL: postgresql://banco_user:${DB_PASSWORD:-banco_password_2024}@postgres:5432/banco
+      NODE_ENV: production
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      coordinador:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - banco-network
+
+  # Worker 3
+  worker-3:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    container_name: banco-worker-3
+    environment:
+      PORT: 3003
+      COORDINADOR_URL: http://coordinador:4000
+      DATABASE_URL: postgresql://banco_user:${DB_PASSWORD:-banco_password_2024}@postgres:5432/banco
+      NODE_ENV: production
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      coordinador:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - banco-network
+
+volumes:
+  postgres-data:
+    driver: local
+
+networks:
+  banco-network:
+    driver: bridge

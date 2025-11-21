@@ -1,0 +1,55 @@
+# Node modules
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Git
+.git
+.gitignore
+.github
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs
+*.log
+pm2.log
+
+# Build
+dist
+build
+.next
+out
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+*.md
+!README.md
+.prettierrc
+.eslintrc
+.editorconfig
+
+# Backups
+backups/
+*.sql
+*.dump
+
+# PM2
+ecosystem.config.json
