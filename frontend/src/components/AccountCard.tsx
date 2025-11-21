@@ -44,18 +44,18 @@ export default function AccountCard({ account }: AccountCardProps) {
 
   const handleShare = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validar email
     const error = getEmailErrorMessage(email);
     if (error) {
       setEmailError(error);
       return;
     }
-    
+
     setEmailError(null);
     setShowConfirm(true);
   };
-  
+
   const confirmShare = async () => {
     setSharing(true);
     try {
@@ -210,7 +210,9 @@ export default function AccountCard({ account }: AccountCardProps) {
                   }}
                   placeholder="Correo del usuario"
                   className={`w-full px-3 py-2 bg-white border rounded text-gray-900 text-sm focus:outline-none ${
-                    emailError ? "border-red-500" : "border-gray-300 focus:border-blue-500"
+                    emailError
+                      ? "border-red-500"
+                      : "border-gray-300 focus:border-blue-500"
                   }`}
                   required
                 />
@@ -268,7 +270,8 @@ export default function AccountCard({ account }: AccountCardProps) {
               <p className="text-sm text-gray-600">Rol: {rol}</p>
             </div>
             <p className="mt-3 text-sm text-gray-600">
-              Esta persona tendrá acceso a la cuenta según los permisos del rol asignado.
+              Esta persona tendrá acceso a la cuenta según los permisos del rol
+              asignado.
             </p>
           </div>
         }

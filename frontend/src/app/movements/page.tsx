@@ -7,6 +7,7 @@ import { apiClient } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import Spinner from "@/components/ui/Spinner";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import {
   isValidAmount,
   sanitizeAmountInput,
@@ -20,6 +21,14 @@ import {
 } from "@heroicons/react/24/outline";
 
 export default function MovementsPage() {
+  return (
+    <ProtectedRoute>
+      <MovementsContent />
+    </ProtectedRoute>
+  );
+}
+
+function MovementsContent() {
   const router = useRouter();
   const { accounts, refreshUserData, user } = useApp();
   const { showSuccess, showError } = useToast();
@@ -32,7 +41,8 @@ export default function MovementsPage() {
 
   const selectedAccount = accounts.find((acc) => acc.id === accountId);
   const numAmount = parseFloat(amount);
-  const canProceed = accountId && amount && isValidAmount(amount) && !amountError;
+  const canProceed =
+    accountId && amount && isValidAmount(amount) && !amountError;
   const hasInsufficientFunds =
     operation === "withdraw" &&
     selectedAccount &&
@@ -226,7 +236,9 @@ export default function MovementsPage() {
                   onBlur={(e) => {
                     const val = e.target.value;
                     if (val && !isValidAmount(val)) {
-                      setAmountError(getAmountErrorMessage(val) || "Monto inválido");
+                      setAmountError(
+                        getAmountErrorMessage(val) || "Monto inválido"
+                      );
                     }
                   }}
                   placeholder="0.00"

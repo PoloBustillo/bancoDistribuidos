@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { Worker, User, Account, Card } from "@/types";
 import { apiClient } from "@/lib/api";
+import { TokenManager, ActivityMonitor, migrateFromLocalStorage } from "@/lib/auth";
 import { io, Socket } from "socket.io-client";
 
 interface BankingEventData {
@@ -320,8 +321,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Conectar Socket.IO cuando hay usuario autenticado
   useEffect(() => {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token = TokenManager.getToken();
 
     if (!user || !token) {
       if (socketRef.current) {
@@ -475,8 +475,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Restaurar sesión al cargar la página
   useEffect(() => {
     const restoreSession = async () => {
-      const token =
-        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      // Migrar tokens antiguos de localStorage
+      migrateFromLocalStorage();
+
+      const token = TokenManager.getToken();
 
       if (token && !user) {
         try {
@@ -493,7 +495,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         } catch (error) {
           console.error("❌ Error al restaurar sesión:", error);
           // Si el token es inválido, limpiar
-          localStorage.removeItem("token");
+          TokenManager.clearSession();
           apiClient.setToken(null);
         }
       }
@@ -700,11 +702,67 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, [user, refreshUserData]);
 
+  // Iniciar monitoreo de actividad y timeout de sesión
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Iniciar monitoreo de actividad del usuario
+    const cleanupActivity = ActivityMonitor.start();
+
+    // Configurar callback para sesión expirada
+    TokenManager.onSessionExpired(() => {
+      console.warn('⏰ Sesión expirada por inactividad');
+      
+      // Limpiar estado completamente
+      setUser(null);
+      setAccounts([]);
+      setCards([]);
+      apiClient.setToken(null);
+      
+      // Desconectar socket
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      
+      // Notificar al usuario
+      const notification: Notification = {
+        id: `session-expired-${Date.now()}`,
+        type: 'warning',
+        title: 'Sesión expirada',
+        message: 'Tu sesión ha expirado por inactividad. Por favor, inicia sesión nuevamente.',
+        timestamp: new Date(),
+      };
+      setNotifications((prev) => [notification, ...prev].slice(0, 20));
+      
+      // Redirigir a login después de 2 segundos
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          window.location.href = '/';
+        }
+      }, 2000);
+    });
+
+    return cleanupActivity;
+  }, []);
+
   const logout = () => {
+    // Limpiar todo el estado
     apiClient.logout();
+    TokenManager.clearSession();
     setUser(null);
     setAccounts([]);
     setCards([]);
+    
+    // Desconectar socket
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+    
+    // Limpiar notificaciones y eventos
+    setNotifications([]);
+    setEvents([]);
   };
 
   const isAuthenticated = user !== null;

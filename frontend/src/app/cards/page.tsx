@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import { apiClient } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import {
   ArrowLeftIcon,
   CreditCardIcon,
@@ -15,6 +16,14 @@ import {
 } from "@heroicons/react/24/outline";
 
 export default function CardsPage() {
+  return (
+    <ProtectedRoute>
+      <CardsContent />
+    </ProtectedRoute>
+  );
+}
+
+function CardsContent() {
   const router = useRouter();
   const { accounts, cards, refreshUserData } = useApp();
   const [showCreateModal, setShowCreateModal] = useState(false);

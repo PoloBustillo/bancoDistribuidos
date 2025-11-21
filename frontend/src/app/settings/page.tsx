@@ -2,9 +2,18 @@
 
 import { useApp } from "@/context/AppContext";
 import { useRouter } from "next/navigation";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
 export default function SettingsPage() {
+  return (
+    <ProtectedRoute>
+      <SettingsContent />
+    </ProtectedRoute>
+  );
+}
+
+function SettingsContent() {
   const router = useRouter();
   const { user, selectedWorker } = useApp();
 

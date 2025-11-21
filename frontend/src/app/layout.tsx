@@ -6,6 +6,7 @@ import { ToastProvider } from "@/context/ToastContext";
 import NotificationCenter from "@/components/NotificationCenter";
 import Navigation from "@/components/Navigation";
 import ErrorBoundary from "@/components/ui/ErrorBoundary";
+import SessionMonitor from "@/components/SessionMonitor";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +39,7 @@ export default function RootLayout({
               <Navigation />
               <main>{children}</main>
               <NotificationCenter />
+              <SessionMonitor />
             </AppProvider>
           </ToastProvider>
         </ErrorBoundary>

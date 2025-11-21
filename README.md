@@ -62,7 +62,18 @@ Un sistema bancario distribuido que implementa el patrón **Coordinador-Trabajad
 - ✅ **Cola de prioridad**: BAJA, NORMAL, ALTA, CRÍTICA
 - ✅ **Timeouts automáticos**: Locks expiran en 30s
 - ✅ **Heartbeat monitoring**: Workers muertos liberan sus locks
-- ✅ **Prevención de deadlocks**: Ordenamiento consistente de recursos  
+- ✅ **Prevención de deadlocks**: Ordenamiento consistente de recursos
+
+### 🛡️ Seguridad Avanzada
+- ✅ **Tokens en sessionStorage**: Más seguro que localStorage (se borran al cerrar navegador)
+- ✅ **Timeout automático**: Sesión expira tras 30 min de inactividad
+- ✅ **Rate limiting**: Máximo 60 peticiones/minuto por endpoint
+- ✅ **Monitoreo de actividad**: Detecta interacción del usuario
+- ✅ **Alertas visuales**: Notificaciones cuando quedan <5 min de sesión
+- ✅ **Persistencia en recargas**: La sesión NO se pierde al refrescar
+- ✅ **Migración segura**: Limpieza automática de tokens antiguos
+
+📖 **[Ver documentación completa de seguridad](frontend/SECURITY.md)**  
 
 │  • Cola de espera con prioridades                          │✅ **Beneficiarios**: Gestión de contactos frecuentes  
 

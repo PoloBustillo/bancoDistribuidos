@@ -6,6 +6,7 @@ import { useToast } from "@/context/ToastContext";
 import { apiClient } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import Spinner from "@/components/ui/Spinner";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import {
   ArrowLeftIcon,
   PlusCircleIcon,
@@ -15,6 +16,14 @@ import {
 import { Account, AccountUser } from "@/types";
 
 export default function AccountsPage() {
+  return (
+    <ProtectedRoute>
+      <AccountsContent />
+    </ProtectedRoute>
+  );
+}
+
+function AccountsContent() {
   const router = useRouter();
   const { accounts, refreshUserData } = useApp();
   const { showSuccess, showError } = useToast();

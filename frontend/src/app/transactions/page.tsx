@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import { useRouter } from "next/navigation";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import {
   ArrowLeftIcon,
   MagnifyingGlassIcon,
@@ -24,6 +25,14 @@ interface Transaction {
 }
 
 export default function TransactionsPage() {
+  return (
+    <ProtectedRoute>
+      <TransactionsContent />
+    </ProtectedRoute>
+  );
+}
+
+function TransactionsContent() {
   const router = useRouter();
   const { accounts } = useApp();
   const [transactions] = useState<Transaction[]>(() => {

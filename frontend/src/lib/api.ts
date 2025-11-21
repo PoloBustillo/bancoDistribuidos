@@ -1,32 +1,35 @@
 // API client for distributed banking system
 
 import { Worker } from '@/types';
+import { TokenManager, RateLimiter } from './auth';
 
 class ApiClient {
   private baseUrl: string = '';
-  private token: string | null = null;
 
   setWorker(worker: Worker) {
     this.baseUrl = worker.url;
   }
 
   setToken(token: string | null) {
-    this.token = token;
-    if (token) {
-      localStorage.setItem('token', token);
-    } else {
-      localStorage.removeItem('token');
-    }
+    TokenManager.setToken(token);
   }
 
   getToken() {
-    if (!this.token) {
-      this.token = localStorage.getItem('token');
-    }
-    return this.token;
+    return TokenManager.getToken();
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
+    // Rate limiting por endpoint
+    const rateLimitKey = `${this.baseUrl}${endpoint}`;
+    if (!RateLimiter.checkLimit(rateLimitKey)) {
+      throw new Error('Demasiadas peticiones. Por favor, espera un momento.');
+    }
+
+    // Actualizar actividad de sesión
+    if (TokenManager.hasActiveSession()) {
+      TokenManager.updateActivity();
+    }
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(options.headers as Record<string, string>),
@@ -45,6 +48,10 @@ class ApiClient {
     const data = await response.json();
 
     if (!response.ok) {
+      // Si es 401, la sesión expiró en el servidor
+      if (response.status === 401) {
+        TokenManager.clearSession();
+      }
       throw new Error(data.error || 'Error en la solicitud');
     }
 

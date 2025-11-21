@@ -6,6 +6,7 @@ import { useToast } from "@/context/ToastContext";
 import { apiClient } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import Spinner from "@/components/ui/Spinner";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import {
   isValidAmount,
   sanitizeAmountInput,
@@ -17,6 +18,14 @@ import {
 } from "@heroicons/react/24/outline";
 
 export default function TransferPage() {
+  return (
+    <ProtectedRoute>
+      <TransferContent />
+    </ProtectedRoute>
+  );
+}
+
+function TransferContent() {
   const router = useRouter();
   const { accounts, user, refreshUserData } = useApp();
   const { showSuccess, showError } = useToast();
@@ -30,17 +39,21 @@ export default function TransferPage() {
 
   const selectedAccount = accounts.find((acc) => acc.id === fromAccountId);
   const canProceed =
-    fromAccountId && toAccountNumber && amount && isValidAmount(amount) && !amountError;
+    fromAccountId &&
+    toAccountNumber &&
+    amount &&
+    isValidAmount(amount) &&
+    !amountError;
 
   const handleShowConfirmation = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validar monto
     if (!isValidAmount(amount)) {
       setAmountError(getAmountErrorMessage(amount) || "Monto inválido");
       return;
     }
-    
+
     if (canProceed) {
       setShowConfirmation(true);
     }
@@ -195,7 +208,9 @@ export default function TransferPage() {
                     onBlur={(e) => {
                       const val = e.target.value;
                       if (val && !isValidAmount(val)) {
-                        setAmountError(getAmountErrorMessage(val) || "Monto inválido");
+                        setAmountError(
+                          getAmountErrorMessage(val) || "Monto inválido"
+                        );
                       }
                     }}
                     placeholder="0.00"

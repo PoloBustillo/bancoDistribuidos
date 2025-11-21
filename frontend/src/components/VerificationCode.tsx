@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
+import { apiClient } from "@/lib/api";
 
 interface VerificationCodeResponse {
   codigo: string;
@@ -42,7 +43,7 @@ export function VerificationCode() {
     setError(null);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = apiClient.getToken();
       if (!token) {
         throw new Error("Debes iniciar sesión primero");
       }
