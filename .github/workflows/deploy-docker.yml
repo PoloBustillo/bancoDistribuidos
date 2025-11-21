@@ -1,0 +1,167 @@
+name: Deploy Banco Distribuido (Docker)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Permite ejecutar manualmente
+
+env:
+  DEPLOY_PATH: "/home/polo/banco-distribuido"
+
+jobs:
+  deploy:
+    name: Deploy to Server with Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -e  # Exit on error
+
+            echo "🚀 Iniciando deployment con Docker..."
+
+            # Crear directorio si no existe
+            mkdir -p ${{ env.DEPLOY_PATH }}
+            cd ${{ env.DEPLOY_PATH }}
+
+            # Clonar o actualizar repositorio
+            if [ -d ".git" ]; then
+              echo "📦 Actualizando repositorio..."
+              git fetch origin
+              git reset --hard origin/main
+              git pull origin main
+            else
+              echo "📦 Clonando repositorio..."
+              rm -rf * .* 2>/dev/null || true
+              git clone https://github.com/${{ github.repository }} .
+            fi
+
+            # Verificar que Docker esté instalado
+            if ! command -v docker &> /dev/null; then
+              echo "❌ Docker no está instalado. Por favor instala Docker primero."
+              exit 1
+            fi
+
+            # Verificar que Docker Compose esté instalado
+            if ! docker compose version &> /dev/null; then
+              echo "❌ Docker Compose no está instalado. Por favor instala Docker Compose primero."
+              exit 1
+            fi
+
+            # Crear archivo .env si no existe
+            if [ ! -f .env ]; then
+              echo "📝 Creando archivo .env..."
+              cp .env.example .env
+              echo "⚠️  IMPORTANTE: Configura DATABASE_URL en .env con tu base de datos existente"
+              echo "⚠️  Ejemplo: DATABASE_URL=postgresql://banco_user:password@localhost:5432/banco"
+            fi
+
+            # Verificar que DATABASE_URL esté configurado
+            if ! grep -q "^DATABASE_URL=" .env || grep -q "tu_password_aqui" .env; then
+              echo "❌ ERROR: DATABASE_URL no está configurado correctamente en .env"
+              echo "Por favor configura DATABASE_URL con la conexión a tu base de datos PostgreSQL"
+              exit 1
+            fi
+
+            # Crear carpeta de backups
+            mkdir -p backups
+
+            # Crear carpeta de logs
+            mkdir -p logs
+
+            echo "🛑 Deteniendo contenedores existentes..."
+            docker compose down --remove-orphans || true
+
+            echo "🔨 Construyendo imágenes Docker..."
+            docker compose build --no-cache
+
+            echo "🚀 Iniciando servicios con Docker Compose..."
+            docker compose up -d
+
+            echo "⏳ Esperando que los servicios estén listos..."
+            sleep 15
+
+            echo "✅ Deployment completado!"
+
+      - name: Verificar Health de los servicios
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            cd ${{ env.DEPLOY_PATH }}
+
+            echo "🏥 Verificando salud de los servicios..."
+            echo ""
+            echo "📊 Estado de contenedores:"
+            docker compose ps
+            echo ""
+
+            # Verificar Coordinador
+            if curl -f http://localhost:4000/health > /dev/null 2>&1; then
+              echo "✅ Coordinador está saludable (puerto 4000)"
+            else
+              echo "❌ Coordinador no responde (puerto 4000)"
+            fi
+
+            # Verificar Workers
+            for port in 3001 3002 3003; do
+              if curl -f http://localhost:$port/api/health > /dev/null 2>&1; then
+                echo "✅ Worker en puerto $port está saludable"
+              else
+                echo "❌ Worker en puerto $port no responde"
+              fi
+            done
+
+            echo ""
+            echo "📋 Logs recientes (últimas 20 líneas):"
+            docker compose logs --tail=20
+
+      - name: Rollback en caso de fallo
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            cd ${{ env.DEPLOY_PATH }}
+
+            echo "❌ Deployment falló. Ejecutando rollback..."
+
+            # Mostrar logs completos para debugging
+            echo "📋 Logs completos de los servicios:"
+            docker compose logs --tail=100
+
+            # Detener servicios fallidos
+            docker compose down
+
+            echo "🔙 Rollback completado. Los servicios han sido detenidos."
+            echo "⚠️  Revisa los logs arriba para identificar el problema."
+
+      - name: Notificación de éxito
+        if: success()
+        run: |
+          echo "✅ Deployment exitoso con Docker!"
+          echo "🐳 Todos los contenedores están corriendo"
+          echo "📊 Servicios disponibles:"
+          echo "  - PostgreSQL: puerto 5432"
+          echo "  - Coordinador: puerto 4000"
+          echo "  - Worker 1: puerto 3001"
+          echo "  - Worker 2: puerto 3002"
+          echo "  - Worker 3: puerto 3003"
+          echo ""
+          echo "💾 Backups automáticos configurados para las 2 AM"
