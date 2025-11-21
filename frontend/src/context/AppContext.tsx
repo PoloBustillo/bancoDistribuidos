@@ -171,6 +171,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     return getDefaultWorkers();
   });
+  
+  const [workersScanned, setWorkersScanned] = useState(false);
 
   const [selectedWorker, setSelectedWorkerState] = useState<Worker>(() => {
     if (typeof window === "undefined") {
@@ -209,6 +211,99 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<BankingEvent[]>([]);
   const socketRef = useRef<Socket | null>(null);
+
+  // Escaneo automático de workers al iniciar
+  useEffect(() => {
+    if (typeof window === "undefined" || workersScanned) return;
+    
+    const scanWorkers = async () => {
+      const WORKER_SCAN_LIST = [
+        // Localhost
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:3003",
+        // HTTPS dominios
+        "https://api1.psic-danieladiaz.com",
+        "https://api2.psic-danieladiaz.com",
+        "https://api3.psic-danieladiaz.com",
+        // HTTP dominios
+        "http://api1.psic-danieladiaz.com",
+        "http://api2.psic-danieladiaz.com",
+        "http://api3.psic-danieladiaz.com",
+      ];
+
+      const results = await Promise.allSettled(
+        WORKER_SCAN_LIST.map(async (baseUrl) => {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            
+            const res = await fetch(`${baseUrl}/api/health`, {
+              method: "GET",
+              mode: "cors",
+              signal: controller.signal,
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (!res.ok) return null;
+            const data = await res.json();
+            if (data.status !== "OK") return null;
+            
+            return {
+              id: data.workerId || `worker-${baseUrl}`,
+              name: data.workerId || baseUrl.replace(/^https?:\/\//, ""),
+              url: baseUrl,
+              color: ["#2563eb", "#22c55e", "#a21caf", "#f59e42"][Math.floor(Math.random() * 4)],
+            };
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      const discoveredWorkers = results
+        .filter((r) => r.status === "fulfilled" && r.value !== null)
+        .map((r: any) => r.value);
+
+      let addedCount = 0;
+      if (discoveredWorkers.length > 0) {
+        setWorkers((prev) => {
+          const newWorkers = discoveredWorkers.filter(
+            (dw) => !prev.some((w) => w.url === dw.url)
+          );
+          
+          if (newWorkers.length === 0) return prev;
+          
+          addedCount = newWorkers.length;
+          const updated = [...prev, ...newWorkers];
+          localStorage.setItem("workers", JSON.stringify(updated));
+          console.log(`🔍 Workers descubiertos automáticamente: ${newWorkers.length}`, newWorkers);
+          
+          return updated;
+        });
+
+        // Notificar al usuario después de un pequeño delay
+        if (addedCount > 0) {
+          setTimeout(() => {
+            setNotifications((prev) => [{
+              id: `worker-scan-${Date.now()}`,
+              type: "info",
+              title: "Workers detectados",
+              message: `Se encontraron ${discoveredWorkers.length} worker(s) disponible(s)`,
+              timestamp: new Date(),
+            }, ...prev].slice(0, 20));
+          }, 500);
+        }
+      }
+      
+      setWorkersScanned(true);
+    };
+
+    // Escanear después de un pequeño delay para no bloquear la carga inicial
+    const timer = setTimeout(scanWorkers, 2000);
+    return () => clearTimeout(timer);
+  }, [workersScanned]);
 
   // ELIMINADO: No forzamos cambios, respetamos la elección del usuario
 

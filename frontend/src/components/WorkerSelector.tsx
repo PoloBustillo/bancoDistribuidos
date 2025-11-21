@@ -42,47 +42,64 @@ export default function WorkerSelector() {
   const [newWorkerHost, setNewWorkerHost] = useState("localhost");
   const [newWorkerName, setNewWorkerName] = useState("");
   const [useCustomUrl, setUseCustomUrl] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanResults, setScanResults] = useState<{ found: number; total: number } | null>(null);
 
-  // Escaneo automático de workers activos al abrir el modal
-  useEffect(() => {
-    if (!showAddWorker) return;
-    let cancelled = false;
-    (async () => {
-      const results = await Promise.all(
-        WORKER_SCAN_LIST.map(async (baseUrl) => {
-          try {
-            const res = await fetch(`${baseUrl}/api/health`, {
-              method: "GET",
-              mode: "cors",
-            });
-            if (!res.ok) return null;
-            const data = await res.json();
-            if (data.status !== "OK") return null;
-            return {
-              id: data.workerId || baseUrl,
-              name: data.workerId || baseUrl.replace(/^https?:\/\//, ""),
-              url: baseUrl,
-              color:
-                workerColors[Math.floor(Math.random() * workerColors.length)],
-            };
-          } catch {
-            return null;
-          }
-        })
-      );
-      if (cancelled) return;
-      // Solo agregar los que no existen ya
-      results.filter(Boolean).forEach((worker) => {
-        if (!workers.some((w) => w.url === worker.url)) {
-          addWorker(worker);
+  // Escaneo manual al hacer clic en botón
+  const handleScanWorkers = async () => {
+    setScanning(true);
+    setScanResults(null);
+    
+    let foundCount = 0;
+    const results = await Promise.allSettled(
+      WORKER_SCAN_LIST.map(async (baseUrl) => {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          
+          const res = await fetch(`${baseUrl}/api/health`, {
+            method: "GET",
+            mode: "cors",
+            signal: controller.signal,
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (!res.ok) return null;
+          const data = await res.json();
+          if (data.status !== "OK") return null;
+          
+          foundCount++;
+          return {
+            id: data.workerId || baseUrl,
+            name: data.workerId || baseUrl.replace(/^https?:\/\//, ""),
+            url: baseUrl,
+            color: workerColors[Math.floor(Math.random() * workerColors.length)],
+          };
+        } catch {
+          return null;
         }
-      });
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showAddWorker]);
+      })
+    );
+    
+    const discoveredWorkers = results
+      .filter((r) => r.status === "fulfilled" && r.value !== null)
+      .map((r: any) => r.value);
+
+    let addedCount = 0;
+    discoveredWorkers.forEach((worker) => {
+      if (!workers.some((w) => w.url === worker.url)) {
+        addWorker(worker);
+        addedCount++;
+      }
+    });
+
+    setScanResults({ found: foundCount, total: WORKER_SCAN_LIST.length });
+    setScanning(false);
+    
+    // Limpiar mensaje después de 5 segundos
+    setTimeout(() => setScanResults(null), 5000);
+  };
 
   const handleAddWorker = (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,7 +213,23 @@ export default function WorkerSelector() {
         >
           ➕ Agregar Worker
         </button>
+        
+        <button
+          onClick={handleScanWorkers}
+          disabled={scanning}
+          className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {scanning ? "🔍 Escaneando..." : "🔍 Buscar Workers"}
+        </button>
       </div>
+
+      {scanResults && (
+        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            ✅ Escaneo completado: {scanResults.found} workers encontrados de {scanResults.total} direcciones
+          </p>
+        </div>
+      )}
 
       {showAddWorker && (
         <form
