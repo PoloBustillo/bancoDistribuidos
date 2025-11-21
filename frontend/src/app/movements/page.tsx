@@ -2,27 +2,24 @@
 
 import { useState } from "react";
 import { useApp } from "@/context/AppContext";
+import { useToast } from "@/context/ToastContext";
 import { apiClient } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import Spinner from "@/components/ui/Spinner";
 import {
   ArrowLeftIcon,
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
-  CheckCircleIcon,
-  XCircleIcon,
 } from "@heroicons/react/24/outline";
 
 export default function MovementsPage() {
   const router = useRouter();
   const { accounts, refreshUserData, user } = useApp();
+  const { showSuccess, showError } = useToast();
   const [operation, setOperation] = useState<"deposit" | "withdraw">("deposit");
   const [accountId, setAccountId] = useState("");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{
-    success: boolean;
-    message: string;
-  } | null>(null);
 
   const selectedAccount = accounts.find((acc) => acc.id === accountId);
   const canProceed = accountId && amount && parseFloat(amount) > 0;
@@ -36,7 +33,6 @@ export default function MovementsPage() {
     if (!canProceed || hasInsufficientFunds) return;
 
     setLoading(true);
-    setResult(null);
 
     try {
       const monto = parseFloat(amount);
@@ -45,12 +41,12 @@ export default function MovementsPage() {
           ? await apiClient.deposit(accountId, monto)
           : await apiClient.withdraw(accountId, monto);
 
-      setResult({
-        success: true,
-        message:
-          response.mensaje ||
-          `${operation === "deposit" ? "Depósito" : "Retiro"} exitoso`,
-      });
+      const operationType = operation === "deposit" ? "Depósito" : "Retiro";
+      showSuccess(
+        `${operationType} exitoso`,
+        response.mensaje ||
+          `Se procesó el ${operationType.toLowerCase()} de $${monto.toFixed(2)}`
+      );
 
       // Emitir evento para sincronizar
       localStorage.setItem(
@@ -64,14 +60,12 @@ export default function MovementsPage() {
       setTimeout(() => localStorage.removeItem("banking-operation"), 100);
 
       await refreshUserData();
-
-      // Reset form after success
-      setTimeout(() => {
-        setAmount("");
-        setResult(null);
-      }, 3000);
+      setAmount("");
     } catch (error) {
-      setResult({ success: false, message: (error as Error).message });
+      showError(
+        "Error en la operación",
+        (error as Error).message || "No se pudo completar la transacción"
+      );
     } finally {
       setLoading(false);
     }
@@ -111,10 +105,7 @@ export default function MovementsPage() {
         {/* Operation Toggle */}
         <div className="bg-white rounded-2xl shadow-xl p-2 mb-6 flex gap-2">
           <button
-            onClick={() => {
-              setOperation("deposit");
-              setResult(null);
-            }}
+            onClick={() => setOperation("deposit")}
             className={`flex-1 py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
               operation === "deposit"
                 ? "bg-linear-to-r from-green-600 to-emerald-600 text-white shadow-md"
@@ -125,10 +116,7 @@ export default function MovementsPage() {
             Depósito
           </button>
           <button
-            onClick={() => {
-              setOperation("withdraw");
-              setResult(null);
-            }}
+            onClick={() => setOperation("withdraw")}
             className={`flex-1 py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
               operation === "withdraw"
                 ? "bg-linear-to-r from-orange-600 to-red-600 text-white shadow-md"
@@ -214,24 +202,6 @@ export default function MovementsPage() {
               )}
             </div>
 
-            {/* Result Message */}
-            {result && (
-              <div
-                className={`p-4 rounded-lg flex items-center gap-3 ${
-                  result.success
-                    ? "bg-green-50 text-green-800"
-                    : "bg-red-50 text-red-800"
-                }`}
-              >
-                {result.success ? (
-                  <CheckCircleIcon className="w-6 h-6 shrink-0" />
-                ) : (
-                  <XCircleIcon className="w-6 h-6 shrink-0" />
-                )}
-                <p>{result.message}</p>
-              </div>
-            )}
-
             {/* Submit Button */}
             <button
               type="submit"
@@ -243,7 +213,10 @@ export default function MovementsPage() {
               }`}
             >
               {loading ? (
-                "Procesando..."
+                <>
+                  <Spinner size="sm" color="border-white" />
+                  <span>Procesando...</span>
+                </>
               ) : (
                 <>
                   {operation === "deposit" ? (

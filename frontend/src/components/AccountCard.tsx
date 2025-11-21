@@ -4,6 +4,8 @@ import { Account, AccountUser } from "@/types";
 import { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
 import { useApp } from "@/context/AppContext";
+import { useToast } from "@/context/ToastContext";
+import Spinner from "@/components/ui/Spinner";
 
 interface AccountCardProps {
   account: Account;
@@ -11,6 +13,7 @@ interface AccountCardProps {
 
 export default function AccountCard({ account }: AccountCardProps) {
   const { refreshUserData } = useApp();
+  const { showSuccess, showError } = useToast();
   const [showShare, setShowShare] = useState(false);
   const [email, setEmail] = useState("");
   const [rol, setRol] = useState<"TITULAR" | "AUTORIZADO" | "CONSULTA">(
@@ -41,6 +44,11 @@ export default function AccountCard({ account }: AccountCardProps) {
     try {
       await apiClient.shareAccount(account.id, email, rol);
 
+      showSuccess(
+        "Cuenta compartida",
+        `Se compartió la cuenta con ${email} como ${rol}`
+      );
+
       // Emitir evento para sincronizar con otras pestañas
       localStorage.setItem(
         "banking-operation",
@@ -53,11 +61,18 @@ export default function AccountCard({ account }: AccountCardProps) {
       setTimeout(() => localStorage.removeItem("banking-operation"), 100);
 
       await refreshUserData();
+
+      // Recargar usuarios
+      const res = await apiClient.getAccountUsers(account.id);
+      setUsers(Array.isArray(res.usuarios) ? res.usuarios : []);
+
       setEmail("");
-      setShowShare(false);
     } catch (error) {
       console.error("Error sharing account:", error);
-      alert((error as Error).message);
+      showError(
+        "Error al compartir cuenta",
+        (error as Error).message || "No se pudo compartir la cuenta"
+      );
     } finally {
       setSharing(false);
     }
@@ -118,7 +133,10 @@ export default function AccountCard({ account }: AccountCardProps) {
             Usuarios con acceso
           </p>
           {loadingUsers ? (
-            <p className="text-gray-400 text-sm">Cargando...</p>
+            <div className="flex items-center gap-2 text-gray-500 text-sm">
+              <Spinner size="sm" />
+              <span>Cargando usuarios...</span>
+            </div>
           ) : users.length === 0 ? (
             <p className="text-gray-400 text-sm">No hay usuarios compartidos</p>
           ) : (
@@ -184,9 +202,16 @@ export default function AccountCard({ account }: AccountCardProps) {
               <button
                 type="submit"
                 disabled={sharing}
-                className="w-full px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm transition-colors disabled:opacity-50"
+                className="w-full px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {sharing ? "Compartiendo..." : "Compartir"}
+                {sharing ? (
+                  <>
+                    <Spinner size="sm" color="border-white" />
+                    <span>Compartiendo...</span>
+                  </>
+                ) : (
+                  "Compartir"
+                )}
               </button>
             </form>
           )}

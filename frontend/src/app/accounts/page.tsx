@@ -2,26 +2,28 @@
 
 import { useState } from "react";
 import { useApp } from "@/context/AppContext";
+import { useToast } from "@/context/ToastContext";
 import { apiClient } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import Spinner from "@/components/ui/Spinner";
 import {
   ArrowLeftIcon,
   PlusCircleIcon,
   UserGroupIcon,
   LockClosedIcon,
-  CheckCircleIcon,
-  XCircleIcon,
 } from "@heroicons/react/24/outline";
 import { Account, AccountUser } from "@/types";
 
 export default function AccountsPage() {
   const router = useRouter();
   const { accounts, refreshUserData } = useApp();
+  const { showSuccess, showError } = useToast();
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [accountUsers, setAccountUsers] = useState<AccountUser[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   // Create account form
   const [newAccountType, setNewAccountType] = useState<
@@ -35,29 +37,26 @@ export default function AccountsPage() {
     "AUTORIZADO"
   );
 
-  const [result, setResult] = useState<{
-    success: boolean;
-    message: string;
-  } | null>(null);
-
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setResult(null);
 
     try {
       await apiClient.createAdditionalAccount(newAccountType, newAccountName);
-      setResult({ success: true, message: "Cuenta creada exitosamente" });
+      showSuccess(
+        "Cuenta creada",
+        `Se creó exitosamente la cuenta ${newAccountName}`
+      );
       await refreshUserData();
 
-      setTimeout(() => {
-        setShowCreateModal(false);
-        setNewAccountName("");
-        setNewAccountType("CHEQUES");
-        setResult(null);
-      }, 2000);
+      setShowCreateModal(false);
+      setNewAccountName("");
+      setNewAccountType("CHEQUES");
     } catch (error) {
-      setResult({ success: false, message: (error as Error).message });
+      showError(
+        "Error al crear cuenta",
+        (error as Error).message || "No se pudo crear la cuenta"
+      );
     } finally {
       setLoading(false);
     }
@@ -66,7 +65,7 @@ export default function AccountsPage() {
   const handleLoadAccountUsers = async (account: Account) => {
     setSelectedAccount(account);
     setShowShareModal(true);
-    setLoading(true);
+    setLoadingUsers(true);
 
     try {
       const usersResponse = await apiClient.getAccountUsers(account.id);
@@ -75,9 +74,13 @@ export default function AccountsPage() {
       );
     } catch (error) {
       console.error("Error loading account users:", error);
+      showError(
+        "Error al cargar usuarios",
+        "No se pudieron cargar los usuarios de la cuenta"
+      );
       setAccountUsers([]);
     } finally {
-      setLoading(false);
+      setLoadingUsers(false);
     }
   };
 
@@ -86,20 +89,24 @@ export default function AccountsPage() {
     if (!selectedAccount) return;
 
     setLoading(true);
-    setResult(null);
 
     try {
       await apiClient.shareAccount(selectedAccount.id, shareEmail, shareRole);
-      setResult({ success: true, message: "Usuario agregado exitosamente" });
+      showSuccess(
+        "Usuario agregado",
+        `Se compartió la cuenta con ${shareEmail} como ${shareRole}`
+      );
       // Reload users
       const usersResponse = await apiClient.getAccountUsers(selectedAccount.id);
       setAccountUsers(
         Array.isArray(usersResponse.usuarios) ? usersResponse.usuarios : []
       );
       setShareEmail("");
-      setTimeout(() => setResult(null), 3000);
     } catch (error) {
-      setResult({ success: false, message: (error as Error).message });
+      showError(
+        "Error al compartir cuenta",
+        (error as Error).message || "No se pudo agregar el usuario"
+      );
     } finally {
       setLoading(false);
     }
@@ -111,10 +118,19 @@ export default function AccountsPage() {
 
     try {
       await apiClient.removeUserFromAccount(selectedAccount.id, userId);
-      const users = await apiClient.getAccountUsers(selectedAccount.id);
-      setAccountUsers(Array.isArray(users) ? users : []);
+      showSuccess(
+        "Usuario removido",
+        "Se eliminó el acceso del usuario a la cuenta"
+      );
+      const usersResponse = await apiClient.getAccountUsers(selectedAccount.id);
+      setAccountUsers(
+        Array.isArray(usersResponse.usuarios) ? usersResponse.usuarios : []
+      );
     } catch (error) {
-      alert((error as Error).message);
+      showError(
+        "Error al remover usuario",
+        (error as Error).message || "No se pudo remover el usuario"
+      );
     }
   };
 
@@ -266,30 +282,10 @@ export default function AccountsPage() {
                   />
                 </div>
 
-                {result && (
-                  <div
-                    className={`p-4 rounded-lg flex items-center gap-3 ${
-                      result.success
-                        ? "bg-green-50 text-green-800"
-                        : "bg-red-50 text-red-800"
-                    }`}
-                  >
-                    {result.success ? (
-                      <CheckCircleIcon className="w-5 h-5 shrink-0" />
-                    ) : (
-                      <XCircleIcon className="w-5 h-5 shrink-0" />
-                    )}
-                    <p className="text-sm">{result.message}</p>
-                  </div>
-                )}
-
                 <div className="flex gap-4 pt-4">
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setResult(null);
-                    }}
+                    onClick={() => setShowCreateModal(false)}
                     disabled={loading}
                     className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
                   >
@@ -298,9 +294,16 @@ export default function AccountsPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex-1 bg-linear-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+                    className="flex-1 bg-linear-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {loading ? "Creando..." : "Crear"}
+                    {loading ? (
+                      <>
+                        <Spinner size="sm" color="border-white" />
+                        <span>Creando...</span>
+                      </>
+                    ) : (
+                      "Crear"
+                    )}
                   </button>
                 </div>
               </form>
@@ -325,11 +328,10 @@ export default function AccountsPage() {
                   onClick={() => {
                     setShowShareModal(false);
                     setSelectedAccount(null);
-                    setResult(null);
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
-                  <XCircleIcon className="w-6 h-6" />
+                  <LockClosedIcon className="w-6 h-6" />
                 </button>
               </div>
 
@@ -370,37 +372,30 @@ export default function AccountsPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {loading ? "Agregando..." : "Agregar Usuario"}
+                    {loading ? (
+                      <>
+                        <Spinner size="sm" color="border-white" />
+                        <span>Agregando...</span>
+                      </>
+                    ) : (
+                      "Agregar Usuario"
+                    )}
                   </button>
                 </div>
               </form>
-
-              {result && (
-                <div
-                  className={`mb-4 p-4 rounded-lg flex items-center gap-3 ${
-                    result.success
-                      ? "bg-green-50 text-green-800"
-                      : "bg-red-50 text-red-800"
-                  }`}
-                >
-                  {result.success ? (
-                    <CheckCircleIcon className="w-5 h-5 shrink-0" />
-                  ) : (
-                    <XCircleIcon className="w-5 h-5 shrink-0" />
-                  )}
-                  <p className="text-sm">{result.message}</p>
-                </div>
-              )}
 
               {/* Users List */}
               <div>
                 <h3 className="font-semibold text-gray-900 mb-4">
                   Usuarios con Acceso
                 </h3>
-                {loading && accountUsers.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">Cargando...</p>
+                {loadingUsers ? (
+                  <div className="flex items-center justify-center gap-2 text-gray-500 py-4">
+                    <Spinner size="sm" />
+                    <span>Cargando usuarios...</span>
+                  </div>
                 ) : accountUsers.length === 0 ? (
                   <p className="text-gray-500 text-center py-4">
                     No hay usuarios compartidos

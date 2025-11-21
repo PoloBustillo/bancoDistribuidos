@@ -2,28 +2,25 @@
 
 import { useState } from "react";
 import { useApp } from "@/context/AppContext";
+import { useToast } from "@/context/ToastContext";
 import { apiClient } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import Spinner from "@/components/ui/Spinner";
 import {
   ArrowLeftIcon,
   ArrowRightCircleIcon,
-  CheckCircleIcon,
-  XCircleIcon,
 } from "@heroicons/react/24/outline";
 
 export default function TransferPage() {
   const router = useRouter();
   const { accounts, user, refreshUserData } = useApp();
+  const { showSuccess, showError } = useToast();
   const [fromAccountId, setFromAccountId] = useState("");
   const [toAccountNumber, setToAccountNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [result, setResult] = useState<{
-    success: boolean;
-    message: string;
-  } | null>(null);
 
   const selectedAccount = accounts.find((acc) => acc.id === fromAccountId);
   const canProceed =
@@ -38,7 +35,6 @@ export default function TransferPage() {
 
   const handleConfirmTransfer = async () => {
     setLoading(true);
-    setResult(null);
 
     try {
       const response = await apiClient.transfer(
@@ -46,10 +42,12 @@ export default function TransferPage() {
         toAccountNumber,
         parseFloat(amount)
       );
-      setResult({
-        success: true,
-        message: response.mensaje || "Transferencia exitosa",
-      });
+
+      showSuccess(
+        "Transferencia exitosa",
+        response.mensaje ||
+          `Se transfirió $${parseFloat(amount).toFixed(2)} correctamente`
+      );
 
       // Emitir evento para sincronizar
       localStorage.setItem(
@@ -64,17 +62,17 @@ export default function TransferPage() {
 
       await refreshUserData();
 
-      // Reset form after success
-      setTimeout(() => {
-        setFromAccountId("");
-        setToAccountNumber("");
-        setAmount("");
-        setDescription("");
-        setShowConfirmation(false);
-        setResult(null);
-      }, 3000);
+      // Reset form
+      setFromAccountId("");
+      setToAccountNumber("");
+      setAmount("");
+      setDescription("");
+      setShowConfirmation(false);
     } catch (error) {
-      setResult({ success: false, message: (error as Error).message });
+      showError(
+        "Error en la transferencia",
+        (error as Error).message || "No se pudo completar la transferencia"
+      );
     } finally {
       setLoading(false);
     }
@@ -258,37 +256,27 @@ export default function TransferPage() {
               )}
             </div>
 
-            {result && (
-              <div
-                className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
-                  result.success
-                    ? "bg-green-50 text-green-800"
-                    : "bg-red-50 text-red-800"
-                }`}
-              >
-                {result.success ? (
-                  <CheckCircleIcon className="w-6 h-6 shrink-0" />
-                ) : (
-                  <XCircleIcon className="w-6 h-6 shrink-0" />
-                )}
-                <p>{result.message}</p>
-              </div>
-            )}
-
             <div className="flex gap-4">
               <button
                 onClick={() => setShowConfirmation(false)}
-                disabled={loading || result?.success}
+                disabled={loading}
                 className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleConfirmTransfer}
-                disabled={loading || result?.success}
-                className="flex-1 bg-linear-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading}
+                className="flex-1 bg-linear-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {loading ? "Procesando..." : "Confirmar Transferencia"}
+                {loading ? (
+                  <>
+                    <Spinner size="sm" color="border-white" />
+                    <span>Procesando...</span>
+                  </>
+                ) : (
+                  "Confirmar Transferencia"
+                )}
               </button>
             </div>
           </div>

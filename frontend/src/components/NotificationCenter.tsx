@@ -78,9 +78,7 @@ export default function NotificationCenter() {
             p-4 flex items-start gap-3
           `}
         >
-          <div className="flex-shrink-0 mt-0.5">
-            {getIcon(notification.type)}
-          </div>
+          <div className="shrink-0 mt-0.5">{getIcon(notification.type)}</div>
 
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -96,7 +94,7 @@ export default function NotificationCenter() {
 
           <button
             onClick={() => removeNotification(notification.id)}
-            className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
           >
             <XMarkIcon className="h-5 w-5" />
           </button>
