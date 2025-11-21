@@ -6,7 +6,8 @@
   "workspaces": [
     "frontend",
     "worker",
-    "coordinador"
+    "coordinador",
+    "shared"
   ],
   "scripts": {
     "install:all": "bun install && cd frontend && bun install && cd ../worker && bun install && cd ../coordinador && bun install",

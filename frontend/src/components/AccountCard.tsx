@@ -1,7 +1,7 @@
 "use client";
 
-import { Account } from "@/types";
-import { useState } from "react";
+import { Account, AccountUser } from "@/types";
+import { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
 import { useApp } from "@/context/AppContext";
 
@@ -17,6 +17,23 @@ export default function AccountCard({ account }: AccountCardProps) {
     "AUTORIZADO"
   );
   const [sharing, setSharing] = useState(false);
+
+  const [users, setUsers] = useState<AccountUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
+  // Cargar usuarios compartidos al expandir la card
+  useEffect(() => {
+    if (showShare) {
+      setLoadingUsers(true);
+      apiClient
+        .getAccountUsers(account.id)
+        .then((res) => {
+          setUsers(Array.isArray(res.usuarios) ? res.usuarios : []);
+        })
+        .catch(() => setUsers([]))
+        .finally(() => setLoadingUsers(false));
+    }
+  }, [showShare, account.id]);
 
   const handleShare = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,6 +110,39 @@ export default function AccountCard({ account }: AccountCardProps) {
           ${account.saldo.toFixed(2)}
         </p>
       </div>
+
+      {/* Usuarios compartidos */}
+      {showShare && (
+        <div className="mb-4">
+          <p className="text-sm text-gray-600 font-semibold mb-2">
+            Usuarios con acceso
+          </p>
+          {loadingUsers ? (
+            <p className="text-gray-400 text-sm">Cargando...</p>
+          ) : users.length === 0 ? (
+            <p className="text-gray-400 text-sm">No hay usuarios compartidos</p>
+          ) : (
+            <ul className="space-y-1">
+              {users.map((u) => (
+                <li
+                  key={u.id}
+                  className="flex items-center gap-2 text-sm text-gray-700"
+                >
+                  <span className="font-medium">{u.nombre}</span>
+                  <span className="text-gray-500">({u.email})</span>
+                  <span
+                    className={`px-2 py-0.5 rounded text-xs border ${
+                      roleColors[u.rol]
+                    }`}
+                  >
+                    {u.rol}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {account.rol === "TITULAR" && (
         <div className="space-y-2">

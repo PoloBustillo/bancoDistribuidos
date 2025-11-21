@@ -69,8 +69,10 @@ export default function AccountsPage() {
     setLoading(true);
 
     try {
-      const users = await apiClient.getAccountUsers(account.id);
-      setAccountUsers(Array.isArray(users) ? users : []);
+      const usersResponse = await apiClient.getAccountUsers(account.id);
+      setAccountUsers(
+        Array.isArray(usersResponse.usuarios) ? usersResponse.usuarios : []
+      );
     } catch (error) {
       console.error("Error loading account users:", error);
       setAccountUsers([]);
@@ -90,8 +92,10 @@ export default function AccountsPage() {
       await apiClient.shareAccount(selectedAccount.id, shareEmail, shareRole);
       setResult({ success: true, message: "Usuario agregado exitosamente" });
       // Reload users
-      const users = await apiClient.getAccountUsers(selectedAccount.id);
-      setAccountUsers(Array.isArray(users) ? users : []);
+      const usersResponse = await apiClient.getAccountUsers(selectedAccount.id);
+      setAccountUsers(
+        Array.isArray(usersResponse.usuarios) ? usersResponse.usuarios : []
+      );
       setShareEmail("");
       setTimeout(() => setResult(null), 3000);
     } catch (error) {

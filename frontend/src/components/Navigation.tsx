@@ -32,6 +32,10 @@ export default function Navigation() {
   const [showWorkerDropdown, setShowWorkerDropdown] = useState(false);
   const [showWorkerModal, setShowWorkerModal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Cierra el dropdown de workers si la lista cambia
   useEffect(() => {
@@ -120,14 +124,17 @@ export default function Navigation() {
                 <span
                   className="font-semibold hidden sm:inline"
                   style={{
-                    color:
-                      selectedWorker.color &&
-                      selectedWorker.color.startsWith("#")
+                    color: mounted
+                      ? selectedWorker.color &&
+                        selectedWorker.color.startsWith("#")
                         ? selectedWorker.color
-                        : selectedWorker.color || "#2563eb",
+                        : selectedWorker.color || "#2563eb"
+                      : "#2563eb",
                   }}
                 >
-                  {selectedWorker.name.replace(/\s*\(.*\)/, "")}
+                  {mounted
+                    ? selectedWorker.name.replace(/\s*\(.*\)/, "")
+                    : "Worker 1"}
                 </span>
                 <ChevronDownIcon className="w-4 h-4 text-gray-600" />
               </button>
