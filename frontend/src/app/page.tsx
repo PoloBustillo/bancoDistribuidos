@@ -1,43 +1,34 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
-import WorkerSelector from "@/components/WorkerSelector";
 import AuthForm from "@/components/AuthForm";
 import Dashboard from "@/components/Dashboard";
 
 export default function Home() {
   const { isAuthenticated } = useApp();
 
-  return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {!isAuthenticated && (
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full">
           <header className="mb-8 text-center">
-            <h1 className="text-4xl font-bold mb-2">
-              🏦 Sistema Bancario Distribuido
+            <h1 className="text-4xl font-bold mb-2 text-gray-900">
+              🏦 Banco Distribuido
             </h1>
-            <p className="text-gray-400">
-              Arquitectura distribuida con locks coordinados
+            <p className="text-gray-600 mb-6 font-medium">
+              Sistema bancario con arquitectura distribuida
             </p>
           </header>
-        )}
 
-        {/* Worker Selector - Always visible */}
-        <div className="mb-6">
-          <WorkerSelector />
+          <AuthForm />
+
+          <footer className="mt-8 text-center text-gray-600 text-xs font-medium">
+            <p>Locks coordinados • Cuentas compartidas • Control de roles</p>
+          </footer>
         </div>
-
-        {/* Main Content */}
-        {isAuthenticated ? <Dashboard /> : <AuthForm />}
-
-        {/* Footer */}
-        <footer className="mt-12 pt-8 border-t border-gray-800 text-center text-gray-500 text-sm">
-          <p className="mt-2">
-            Conceptos: Cuentas Compartidas (locks distribuidos) • Tarjetas
-            Individuales (sin locks) • Control de Acceso Basado en Roles
-          </p>
-        </footer>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return <Dashboard />;
 }

@@ -1,22 +1,23 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useApp } from '@/context/AppContext';
-import { apiClient } from '@/lib/api';
+import { useState } from "react";
+import { useApp } from "@/context/AppContext";
+import { apiClient } from "@/lib/api";
 
 export default function AuthForm() {
-  const { setUser, setAccounts, setCards, selectedWorker, refreshUserData } = useApp();
+  const { setUser, setAccounts, setCards, selectedWorker, refreshUserData } =
+    useApp();
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [nombre, setNombre] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [nombre, setNombre] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       if (isLogin) {
@@ -36,12 +37,15 @@ export default function AuthForm() {
   };
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 max-w-md mx-auto">
-      <h2 className="text-2xl font-bold text-white mb-2">
-        {isLogin ? '🔐 Iniciar Sesión' : '📝 Registrarse'}
+    <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-2xl p-6 max-w-md mx-auto">
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        {isLogin ? "🔐 Iniciar Sesión" : "📝 Registrarse"}
       </h2>
-      <p className="text-sm text-gray-400 mb-6">
-        Conectando a: <span className={`font-mono ${selectedWorker.color} px-2 py-1 rounded text-white`}>
+      <p className="text-sm text-gray-700 mb-6 font-medium">
+        Conectando a:{" "}
+        <span
+          className={`font-mono font-semibold ${selectedWorker.color} px-2 py-1 rounded text-white`}
+        >
           {selectedWorker.name}
         </span>
       </p>
@@ -49,48 +53,51 @@ export default function AuthForm() {
       <form onSubmit={handleSubmit} className="space-y-4">
         {!isLogin && (
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
               Nombre
             </label>
             <input
               type="text"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+              placeholder="Ingresa tu nombre completo"
+              className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-500 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm hover:border-gray-400 transition-colors"
               required={!isLogin}
             />
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
             Correo Electrónico
           </label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+            placeholder="tu@email.com"
+            className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-500 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm hover:border-gray-400 transition-colors"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
             Contraseña
           </label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+            placeholder="Mínimo 8 caracteres"
+            className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-500 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm hover:border-gray-400 transition-colors"
             required
             minLength={8}
           />
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-2 rounded-lg text-sm">
+          <div className="bg-red-50 border-2 border-red-300 text-red-700 px-4 py-3 rounded-lg text-sm font-medium">
             {error}
           </div>
         )}
@@ -98,17 +105,23 @@ export default function AuthForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+          className="w-full bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? 'Procesando...' : isLogin ? 'Iniciar Sesión' : 'Registrarse'}
+          {loading
+            ? "Procesando..."
+            : isLogin
+            ? "Iniciar Sesión"
+            : "Registrarse"}
         </button>
 
         <button
           type="button"
           onClick={() => setIsLogin(!isLogin)}
-          className="w-full text-sm text-gray-400 hover:text-white transition-colors"
+          className="w-full text-sm text-gray-600 hover:text-gray-900 transition-colors font-medium"
         >
-          {isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
+          {isLogin
+            ? "¿No tienes cuenta? Regístrate"
+            : "¿Ya tienes cuenta? Inicia sesión"}
         </button>
       </form>
     </div>

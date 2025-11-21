@@ -72,30 +72,33 @@ const AppContext = createContext<AppState | undefined>(undefined);
 // Función para obtener los workers por defecto según el entorno
 const getDefaultWorkers = (): Worker[] => {
   // Usar variables de entorno si están disponibles
-  const worker1Url = process.env.NEXT_PUBLIC_WORKER1_URL || "https://api1.psic-danieladiaz.com";
-  const worker2Url = process.env.NEXT_PUBLIC_WORKER2_URL || "https://api2.psic-danieladiaz.com";
-  const worker3Url = process.env.NEXT_PUBLIC_WORKER3_URL || "https://api3.psic-danieladiaz.com";
+  const worker1Url =
+    process.env.NEXT_PUBLIC_WORKER1_URL || "https://api1.psic-danieladiaz.com";
+  const worker2Url =
+    process.env.NEXT_PUBLIC_WORKER2_URL || "https://api2.psic-danieladiaz.com";
+  const worker3Url =
+    process.env.NEXT_PUBLIC_WORKER3_URL || "https://api3.psic-danieladiaz.com";
 
   // En el servidor (SSR), siempre usar producción
   if (typeof window === "undefined") {
     return [
       {
         id: "worker1",
-        name: "Worker 1 (API1)",
+        name: "Worker 1",
         url: worker1Url,
-        color: "bg-blue-500",
+        color: "#2563eb",
       },
       {
         id: "worker2",
-        name: "Worker 2 (API2)",
+        name: "Worker 2",
         url: worker2Url,
-        color: "bg-green-500",
+        color: "#22c55e",
       },
       {
         id: "worker3",
-        name: "Worker 3 (API3)",
+        name: "Worker 3",
         url: worker3Url,
-        color: "bg-purple-500",
+        color: "#a21caf",
       },
     ];
   }
@@ -107,13 +110,13 @@ const getDefaultWorkers = (): Worker[] => {
         id: "worker1",
         name: "Worker 1",
         url: "http://localhost:3001",
-        color: "bg-blue-500",
+        color: "#2563eb",
       },
       {
         id: "worker2",
         name: "Worker 2",
         url: "http://localhost:3002",
-        color: "bg-green-500",
+        color: "#22c55e",
       },
     ];
   }
@@ -122,21 +125,21 @@ const getDefaultWorkers = (): Worker[] => {
   return [
     {
       id: "worker1",
-      name: "Worker 1 (API1)",
+      name: "Worker 1",
       url: worker1Url,
-      color: "bg-blue-500",
+      color: "#2563eb",
     },
     {
       id: "worker2",
-      name: "Worker 2 (API2)",
+      name: "Worker 2",
       url: worker2Url,
-      color: "bg-green-500",
+      color: "#22c55e",
     },
     {
       id: "worker3",
-      name: "Worker 3 (API3)",
+      name: "Worker 3",
       url: worker3Url,
-      color: "bg-purple-500",
+      color: "#a21caf",
     },
   ];
 };

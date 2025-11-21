@@ -6,8 +6,7 @@
   "workspaces": [
     "frontend",
     "worker",
-    "coordinador",
-    "shared"
+    "coordinador"
   ],
   "scripts": {
     "install:all": "bun install && cd frontend && bun install && cd ../worker && bun install && cd ../coordinador && bun install",
@@ -17,11 +16,11 @@
     "dev:worker:3001": "cd worker && PORT=3001 bun run dev",
     "dev:worker:3002": "cd worker && PORT=3002 bun run dev",
     "dev:worker:3003": "cd worker && PORT=3003 bun run dev",
-    "dev:coordinador": "bun --watch coordinador/src/server.ts",
+    "dev:coordinador": "cd coordinador && bun run dev",
     "dev:frontend": "cd frontend && bun run dev",
     "start": "concurrently \"bun run start:worker\" \"bun run start:coordinador\" \"bun run start:frontend\"",
     "start:worker": "cd worker && bun run start",
-    "start:coordinador": "bun coordinador/src/server.ts",
+    "start:coordinador": "cd coordinador && bun run start",
     "start:frontend": "cd frontend && bun run start",
     "build:frontend": "cd frontend && bun run build",
     "lint:frontend": "cd frontend && bun run lint",
