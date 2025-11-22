@@ -9,15 +9,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME_COORDINADOR: ${{ github.repository }}-coordinador
-  IMAGE_NAME_WORKER: ${{ github.repos          echo "📊 Servicios disponibles:"
-          echo "  - Coordinador: puerto 4000"
-          echo "  - Worker 1: puerto 3001"
-          echo "  - Worker 2: puerto 3002"
-          echo "  - Worker 3: puerto 3003"
-          echo "  - RabbitMQ: puerto 5672 (AMQP) y 15672 (UI)"
-          echo "  - Notificaciones: puerto 4001 (HTTP) y 50051 (gRPC)"
-          echo ""
-          echo "🔍 Ver imágenes: https://github.com/${{ github.repository }}/pkgs/container/bancodistribuidos-coordinador"}-worker
+  IMAGE_NAME_WORKER: ${{ github.repository }}-worker
   IMAGE_NAME_NOTIFICACIONES: ${{ github.repository }}-notificaciones
   DEPLOY_PATH: "/home/polo/banco-distribuido"
 
