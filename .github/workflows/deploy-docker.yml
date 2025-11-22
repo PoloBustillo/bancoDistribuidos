@@ -10,7 +10,6 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME_COORDINADOR: ${{ github.repository }}-coordinador
   IMAGE_NAME_WORKER: ${{ github.repository }}-worker
-  IMAGE_NAME_NOTIFICACIONES: ${{ github.repository }}-notificaciones
   DEPLOY_PATH: "/home/polo/banco-distribuido"
 
 jobs:
@@ -75,27 +74,6 @@ jobs:
           push: true
           tags: ${{ steps.meta-worker.outputs.tags }}
           labels: ${{ steps.meta-worker.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Extract metadata for Notificaciones
-        id: meta-notificaciones
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_NOTIFICACIONES }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Notificaciones image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./microservicios/notificaciones
-          file: ./microservicios/notificaciones/Dockerfile
-          push: true
-          tags: ${{ steps.meta-notificaciones.outputs.tags }}
-          labels: ${{ steps.meta-notificaciones.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -216,7 +194,6 @@ jobs:
             timeout 3 curl -sf http://localhost:3001/api/health > /dev/null 2>&1 && echo "✅ Worker 1 (3001)" || echo "⚠️  Worker 1 iniciando"
             timeout 3 curl -sf http://localhost:3002/api/health > /dev/null 2>&1 && echo "✅ Worker 2 (3002)" || echo "⚠️  Worker 2 iniciando"
             timeout 3 curl -sf http://localhost:3003/api/health > /dev/null 2>&1 && echo "✅ Worker 3 (3003)" || echo "⚠️  Worker 3 iniciando"
-            timeout 3 curl -sf http://localhost:4001/api/health > /dev/null 2>&1 && echo "✅ Notificaciones (4001)" || echo "⚠️  Notificaciones iniciando"
 
             echo ""
             echo "📋 Logs recientes:"

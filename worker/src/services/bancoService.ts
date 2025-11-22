@@ -485,8 +485,11 @@ export class BancoService {
       );
 
       // ========================================
-      // 📧 ENVIAR NOTIFICACIÓN POR EMAIL
+      // 📧 NOTIFICACIÓN POR EMAIL (DESHABILITADO EN PRODUCCIÓN)
       // ========================================
+      // Comentado temporalmente para reducir consumo de memoria
+      // Descomentar cuando se tenga servidor con más recursos
+      /*
       try {
         const usuario = await prisma.usuario.findUnique({
           where: { id: usuarioId },
@@ -515,6 +518,7 @@ export class BancoService {
         // No fallar el retiro si falla el email
         console.error("⚠️  Error enviando notificación por email:", emailError);
       }
+      */
 
       return {
         mensaje: "Retiro realizado exitosamente",

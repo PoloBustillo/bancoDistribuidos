@@ -44,16 +44,12 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: production
       CORS_ORIGIN: ${CORS_ORIGIN:-https://banco-distribuidos.vercel.app}
-      # RabbitMQ para notificaciones
-      RABBITMQ_URL: amqp://user:password@rabbitmq:5672
-      NOTIF_QUEUE: notificaciones
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "3001:3001"
     depends_on:
       coordinador:
         condition: service_started
-      rabbitmq:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
       interval: 30s
@@ -81,16 +77,12 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: production
       CORS_ORIGIN: ${CORS_ORIGIN:-https://banco-distribuidos.vercel.app}
-      # RabbitMQ para notificaciones
-      RABBITMQ_URL: amqp://user:password@rabbitmq:5672
-      NOTIF_QUEUE: notificaciones
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "3002:3002"
     depends_on:
       coordinador:
         condition: service_started
-      rabbitmq:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3002/api/health"]
       interval: 30s
@@ -116,78 +108,14 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: production
       CORS_ORIGIN: ${CORS_ORIGIN:-https://banco-distribuidos.vercel.app}
-      # RabbitMQ para notificaciones
-      RABBITMQ_URL: amqp://user:password@rabbitmq:5672
-      NOTIF_QUEUE: notificaciones
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "3003:3003"
     depends_on:
       coordinador:
         condition: service_started
-      rabbitmq:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3003/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    restart: unless-stopped
-    networks:
-      - banco-network
-
-  # ========================================
-  # 🐰 RABBITMQ (Message Broker)
-  # ========================================
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: banco-rabbitmq
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-user}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-password}
-    ports:
-      - "5672:5672"   # AMQP
-      - "15672:15672" # Management UI
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    restart: unless-stopped
-    networks:
-      - banco-network
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-
-  # ========================================
-  # 📧 MICROSERVICIO DE NOTIFICACIONES
-  # ========================================
-  notificaciones:
-    # Para production: usa image de GHCR
-    image: ghcr.io/polobustillo/bancodistribuidos-notificaciones:latest
-    # Para development local: descomentar build y comentar image
-    # build:
-    #   context: ./microservicios/notificaciones
-    #   dockerfile: Dockerfile
-    container_name: banco-notificaciones
-    environment:
-      PORT: 4001
-      GRPC_PORT: 50051
-      NODE_ENV: production
-      RABBITMQ_URL: amqp://user:password@rabbitmq:5672
-      NOTIF_QUEUE: notificaciones
-      # Configurar con tu API Key de Resend
-      RESEND_API_KEY: ${RESEND_API_KEY}
-      RESEND_FROM: ${RESEND_FROM:-"Banco <no-reply@psicologopuebla.com>"}
-    ports:
-      - "4001:4001"  # HTTP API
-      - "50051:50051" # gRPC
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4001/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -229,11 +157,8 @@ networks:
   banco-network:
     driver: bridge
 
-# Volúmenes persistentes
-volumes:
-  rabbitmq_data:
-    driver: local
-  # Descomentar si usas Caddy
+# Volúmenes persistentes (si usas Caddy)
+# volumes:
   # caddy_data:
   # caddy_config:
   # caddy_logs:
