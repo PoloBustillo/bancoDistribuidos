@@ -177,13 +177,16 @@ jobs:
             docker compose pull
 
             echo "🚀 Iniciando servicios con Docker Compose..."
-            docker compose up -d
+            docker compose up -d --no-color 2>&1
 
             echo "⏳ Esperando que los servicios estén listos..."
-            sleep 30
+            sleep 15
+            
+            echo "📊 Estado de contenedores:"
+            docker compose ps --format "table {{.Name}}\t{{.Status}}" || true
 
             echo "🧹 Limpiando imágenes antiguas..."
-            docker image prune -af --filter "until=24h" || true
+            docker image prune -af --filter "until=24h" > /dev/null 2>&1 || true
 
             echo "✅ Deployment completado!"
 
@@ -194,48 +197,52 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
+          command_timeout: 2m
           script: |
             cd ${{ env.DEPLOY_PATH }}
 
             echo "🏥 Verificando salud de los servicios..."
             echo ""
             echo "📊 Estado de contenedores:"
-            docker compose ps
+            docker compose ps --format "table {{.Name}}\t{{.Status}}" || true
             echo ""
 
-            # Verificar Coordinador
-            if curl -f http://localhost:4000/health > /dev/null 2>&1; then
+            # Dar tiempo adicional para que los servicios inicien
+            sleep 10
+
+            # Verificar Coordinador con timeout
+            if timeout 5 curl -sf http://localhost:4000/health > /dev/null 2>&1; then
               echo "✅ Coordinador está saludable (puerto 4000)"
             else
-              echo "❌ Coordinador no responde (puerto 4000)"
+              echo "⚠️  Coordinador no responde aún (puerto 4000)"
             fi
 
-            # Verificar Workers
+            # Verificar Workers con timeout
             for port in 3001 3002 3003; do
-              if curl -f http://localhost:$port/api/health > /dev/null 2>&1; then
+              if timeout 5 curl -sf http://localhost:$port/api/health > /dev/null 2>&1; then
                 echo "✅ Worker en puerto $port está saludable"
               else
-                echo "❌ Worker en puerto $port no responde"
+                echo "⚠️  Worker en puerto $port no responde aún"
               fi
             done
 
-            # Verificar RabbitMQ
-            if docker compose exec -T rabbitmq rabbitmq-diagnostics ping > /dev/null 2>&1; then
+            # Verificar RabbitMQ con timeout
+            if timeout 5 docker compose exec -T rabbitmq rabbitmq-diagnostics ping > /dev/null 2>&1; then
               echo "✅ RabbitMQ está saludable (puerto 5672)"
             else
-              echo "⚠️  RabbitMQ no responde o no está iniciado"
+              echo "⚠️  RabbitMQ no responde aún o está iniciando"
             fi
 
-            # Verificar Microservicio de Notificaciones
-            if curl -f http://localhost:4001/api/health > /dev/null 2>&1; then
+            # Verificar Microservicio de Notificaciones con timeout
+            if timeout 5 curl -sf http://localhost:4001/api/health > /dev/null 2>&1; then
               echo "✅ Microservicio de Notificaciones está saludable (puerto 4001)"
             else
-              echo "❌ Microservicio de Notificaciones no responde (puerto 4001)"
+              echo "⚠️  Microservicio de Notificaciones no responde aún"
             fi
 
             echo ""
             echo "📋 Logs recientes (últimas 20 líneas):"
-            docker compose logs --tail=20
+            docker compose logs --tail=20 --no-color || true
 
       - name: Rollback en caso de fallo
         if: failure()
@@ -245,17 +252,18 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
+          command_timeout: 2m
           script: |
             cd ${{ env.DEPLOY_PATH }}
 
             echo "❌ Deployment falló. Ejecutando rollback..."
 
             # Mostrar logs completos para debugging
-            echo "📋 Logs completos de los servicios:"
-            docker compose logs --tail=100
+            echo "📋 Logs de los servicios:"
+            docker compose logs --tail=100 --no-color || true
 
             # Detener servicios fallidos
-            docker compose down
+            docker compose down --remove-orphans || true
 
             echo "🔙 Rollback completado. Los servicios han sido detenidos."
             echo "⚠️  Revisa los logs arriba para identificar el problema."
