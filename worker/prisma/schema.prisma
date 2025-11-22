@@ -187,9 +187,10 @@ model Tarjeta {
 // acceder a información de clientes tras verificación.
 // Los asesores están pre-autenticados y solo necesitan
 // verificar al cliente con últimos dígitos + código temporal.
+// ID puede ser UUID o string corto personalizado (ej: 12345678a)
 // ========================================
 model Asesor {
-    id        String   @id @default(uuid())
+    id        String   @id // Permite IDs personalizados (UUID o formato corto)
     nombre    String
     email     String   @unique
     codigo    String   @unique // Código de empleado

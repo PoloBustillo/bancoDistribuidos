@@ -185,7 +185,13 @@ async function loginScreen() {
   console.log("═══════════════════════════════════════════════════════════\n");
 
   // Paso 1: ID del asesor
-  const advisorId = await prompt("👤 ID de Asesor: ");
+  console.log("👤 IDENTIFICACIÓN DEL ASESOR\n");
+  console.log("   IDs disponibles:");
+  console.log("   • 12345678a (Juan Pérez)");
+  console.log("   • 87654321b (María García)");
+  console.log("   • 11223344c (Carlos López)\n");
+
+  const advisorId = await prompt("� Ingrese su ID de asesor: ");
   if (!advisorId) {
     showError("ID de asesor requerido");
     await prompt("Presione Enter para continuar...");

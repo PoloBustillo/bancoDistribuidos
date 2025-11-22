@@ -804,7 +804,7 @@ app.post(
 app.post("/api/advisor/verify-client", async (req: Request, res: Response) => {
   try {
     const schema = z.object({
-      asesorId: z.string().uuid(),
+      asesorId: z.string().min(1), // Acepta cualquier string (UUID o ID corto)
       numeroRecurso: z.string(), // número de cuenta o tarjeta
       ultimosDigitos: z.string().length(4),
       codigo: z.string().length(6),
