@@ -3,8 +3,9 @@ FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
-# Copiar package.json del root
-COPY package.json ./
+# Crear package.json temporal solo con workspaces necesarios
+# Esto evita el error "Workspace not found" para frontend/coordinador
+RUN echo '{"name":"banco-distribuido","workspaces":["shared","worker"]}' > package.json
 
 # Copiar shared workspace completo (con su package.json)
 COPY shared ./shared
@@ -13,7 +14,7 @@ COPY shared ./shared
 COPY worker ./worker
 
 # Instalar dependencias de todos los workspaces
-# Bun manejará los workspaces automáticamente desde package.json
+# Bun manejará los workspaces automáticamente desde package.json temporal
 RUN bun install
 
 # Instalar Prisma 6 explícitamente desde package.json del worker
@@ -30,8 +31,8 @@ WORKDIR /app
 # Instalar curl para health checks y openssl para Prisma
 RUN apk add --no-cache curl openssl
 
-# IMPORTANTE: Copiar package.json del root para mantener configuración de workspaces
-COPY --from=builder /app/package.json ./package.json
+# IMPORTANTE: Recrear package.json con workspaces para runtime
+RUN echo '{"name":"banco-distribuido","workspaces":["shared","worker"]}' > package.json
 
 # Copiar node_modules del workspace root (contiene Prisma Client generado)
 COPY --from=builder /app/node_modules ./node_modules
