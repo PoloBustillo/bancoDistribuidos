@@ -9,7 +9,16 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME_COORDINADOR: ${{ github.repository }}-coordinador
-  IMAGE_NAME_WORKER: ${{ github.repository }}-worker
+  IMAGE_NAME_WORKER: ${{ github.repos          echo "📊 Servicios disponibles:"
+          echo "  - Coordinador: puerto 4000"
+          echo "  - Worker 1: puerto 3001"
+          echo "  - Worker 2: puerto 3002"
+          echo "  - Worker 3: puerto 3003"
+          echo "  - RabbitMQ: puerto 5672 (AMQP) y 15672 (UI)"
+          echo "  - Notificaciones: puerto 4001 (HTTP) y 50051 (gRPC)"
+          echo ""
+          echo "🔍 Ver imágenes: https://github.com/${{ github.repository }}/pkgs/container/bancodistribuidos-coordinador"}-worker
+  IMAGE_NAME_NOTIFICACIONES: ${{ github.repository }}-notificaciones
   DEPLOY_PATH: "/home/polo/banco-distribuido"
 
 jobs:
@@ -74,6 +83,27 @@ jobs:
           push: true
           tags: ${{ steps.meta-worker.outputs.tags }}
           labels: ${{ steps.meta-worker.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract metadata for Notificaciones
+        id: meta-notificaciones
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_NOTIFICACIONES }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Notificaciones image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./microservicios/notificaciones
+          file: ./microservicios/notificaciones/Dockerfile
+          push: true
+          tags: ${{ steps.meta-notificaciones.outputs.tags }}
+          labels: ${{ steps.meta-notificaciones.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -196,6 +226,20 @@ jobs:
                 echo "❌ Worker en puerto $port no responde"
               fi
             done
+
+            # Verificar RabbitMQ
+            if docker compose exec rabbitmq rabbitmq-diagnostics ping > /dev/null 2>&1; then
+              echo "✅ RabbitMQ está saludable (puerto 5672)"
+            else
+              echo "⚠️  RabbitMQ no responde o no está iniciado"
+            fi
+
+            # Verificar Microservicio de Notificaciones
+            if curl -f http://localhost:4001/api/health > /dev/null 2>&1; then
+              echo "✅ Microservicio de Notificaciones está saludable (puerto 4001)"
+            else
+              echo "❌ Microservicio de Notificaciones no responde (puerto 4001)"
+            fi
 
             echo ""
             echo "📋 Logs recientes (últimas 20 líneas):"

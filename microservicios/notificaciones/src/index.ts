@@ -8,6 +8,15 @@ import { startGrpcServer } from "./grpcServer.js";
 const app = express();
 app.use(json());
 
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    service: "notificaciones",
+    timestamp: new Date().toISOString() 
+  });
+});
+
 // Endpoint HTTP opcional para pruebas
 app.post("/api/notificaciones/send", async (req, res) => {
   const { to, subject, message } = req.body;
