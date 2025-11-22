@@ -146,19 +146,25 @@ jobs:
             mkdir -p logs
 
             echo "🛑 Deteniendo contenedores existentes del banco..."
-            timeout 60 docker compose down --remove-orphans 2>&1 || true
+            docker compose down --remove-orphans 2>&1 || true
 
-            echo "🧹 Limpiando recursos Docker..."
-            # Detener TODOS los contenedores con timeout
-            timeout 30 docker stop $(docker ps -aq) 2>/dev/null || true
-            # Eliminar contenedores detenidos
-            timeout 20 docker container prune -f 2>&1 || true
-            # Eliminar imágenes antiguas (rápido, solo dangling)
-            timeout 20 docker image prune -f 2>&1 || true
-            # Eliminar volúmenes huérfanos
-            timeout 20 docker volume prune -f 2>&1 || true
+            echo "🧹 LIMPIEZA TOTAL DE DOCKER (esto liberará mucha memoria)..."
+            # Detener TODOS los contenedores
+            docker stop $(docker ps -aq) 2>/dev/null || true
             
-            echo "✅ Limpieza completada"
+            # Eliminar TODOS los contenedores
+            docker rm -f $(docker ps -aq) 2>/dev/null || true
+            
+            # Eliminar TODAS las imágenes sin usar (liberando espacio)
+            docker image prune -af 2>/dev/null || true
+            
+            # Eliminar volúmenes huérfanos
+            docker volume prune -f 2>/dev/null || true
+            
+            # System prune agresivo (limpieza final)
+            docker system prune -af --volumes 2>/dev/null || true
+            
+            echo "✅ Limpieza completada - Docker limpio"
 
             echo "🔐 Login a GitHub Container Registry..."
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
