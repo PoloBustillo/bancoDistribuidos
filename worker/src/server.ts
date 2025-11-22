@@ -40,16 +40,21 @@ let cuentasCompartidasService: CuentasCompartidasService;
 const JWT_SECRET =
   process.env.JWT_SECRET || "B4nc0S3cr3_2024_D1str1but3d_JWT_S3cr3t";
 
+// Obtener orígenes CORS permitidos (incluye Vercel)
+const allowedOrigins = ConfigManager.getCorsOrigins();
+const localOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:3002",
+  "http://localhost:3003",
+];
+const allSocketOrigins = [...allowedOrigins, ...localOrigins];
+
+logger.worker(`🔌 Socket.IO CORS Origins: ${allSocketOrigins.join(", ")}`);
+
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://localhost:3002",
-      "http://localhost:3003",
-      "https://banco.psic-danieladiaz.com",
-      "https://frontend.psic-danieladiaz.com",
-    ],
+    origin: allSocketOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
