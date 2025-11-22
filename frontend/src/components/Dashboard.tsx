@@ -14,7 +14,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 export default function Dashboard() {
-  const { user, accounts, cards, logout } = useApp();
+  const { user, accounts, cards } = useApp();
   const [showVerificationModal, setShowVerificationModal] = useState(false);
 
   return (
@@ -48,13 +48,6 @@ export default function Dashboard() {
               >
                 <span>👤</span>
                 <span className="truncate">Atención con Asesor</span>
-              </button>
-              <button
-                onClick={logout}
-                className="w-full sm:w-auto min-w-0 px-4 py-2 bg-red-50 border-2 border-red-500 text-red-700 rounded-lg hover:bg-red-100 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base font-medium shadow-sm"
-                aria-label="Cerrar Sesión"
-              >
-                <span className="truncate">Cerrar Sesión</span>
               </button>
             </div>
           </div>

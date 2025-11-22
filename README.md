@@ -254,337 +254,606 @@ bun run dev:backend  # Inicia coordinador + 1 worker
 
                    │
 
-                   ▼## 🏗️ Arquitectura
+---
 
-          ┌────────────────┐
+## 🏗️ Arquitectura del Sistema
 
-          │   PostgreSQL   │```
+### 📐 Patrón Coordinador-Trabajador (Coordinator-Worker)
 
-          │   (Compartida) │┌─────────────────────────────────────────┐
+Este sistema implementa un **patrón de arquitectura distribuida** donde múltiples workers procesan operaciones bancarias concurrentes de forma segura mediante un coordinador central que gestiona locks distribuidos.
 
-          └────────────────┘│         FRONTEND (React)                │
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        CAPA DE CLIENTE                          │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  FRONTEND (Next.js + React + TypeScript)                 │   │
+│  │  - Dashboard de usuario                                   │   │
+│  │  - Gestión de cuentas y tarjetas                         │   │
+│  │  - Transferencias y operaciones                          │   │
+│  │  - Sistema de notificaciones real-time (Socket.IO)       │   │
+│  └───────────────────┬──────────────────────────────────────┘   │
+└────────────────────────┼───────────────────────────────────────┘
+                         │ HTTP/REST + WebSocket
+┌────────────────────────┼───────────────────────────────────────┐
+│                        ▼  CAPA DE APLICACIÓN                    │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │          WORKER 1        WORKER 2        WORKER 3        │   │
+│  │         (Port 3001)     (Port 3002)     (Port 3003)      │   │
+│  │  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐    │   │
+│  │  │ API REST    │   │ API REST    │   │ API REST    │    │   │
+│  │  │ Express.js  │   │ Express.js  │   │ Express.js  │    │   │
+│  │  ├─────────────┤   ├─────────────┤   ├─────────────┤    │   │
+│  │  │ Auth JWT    │   │ Auth JWT    │   │ Auth JWT    │    │   │
+│  │  ├─────────────┤   ├─────────────┤   ├─────────────┤    │   │
+│  │  │ Servicios:  │   │ Servicios:  │   │ Servicios:  │    │   │
+│  │  │ • Banco     │   │ • Banco     │   │ • Banco     │    │   │
+│  │  │ • Cuentas   │   │ • Cuentas   │   │ • Cuentas   │    │   │
+│  │  │ • Tarjetas  │   │ • Tarjetas  │   │ • Tarjetas  │    │   │
+│  │  │ • Asesor    │   │ • Asesor    │   │ • Asesor    │    │   │
+│  │  ├─────────────┤   ├─────────────┤   ├─────────────┤    │   │
+│  │  │ Prisma ORM  │   │ Prisma ORM  │   │ Prisma ORM  │    │   │
+│  │  └──────┬──────┘   └──────┬──────┘   └──────┬──────┘    │   │
+│  └─────────┼─────────────────┼─────────────────┼───────────┘   │
+│            │ Socket.IO        │                 │               │
+│            └─────────┬────────┴─────────────────┘               │
+│                      │ (Lock Protocol)                          │
+│  ┌───────────────────▼──────────────────────────────────────┐   │
+│  │           COORDINADOR (Port 4000)                        │   │
+│  │  ┌────────────────────────────────────────────────────┐  │   │
+│  │  │  Gestor de Locks Distribuidos                      │  │   │
+│  │  │  • Registro de workers                             │  │   │
+│  │  │  • Gestión de locks (mutex distribuido)            │  │   │
+│  │  │  • Cola FIFO de solicitudes                        │  │   │
+│  │  │  • Detección de deadlocks                          │  │   │
+│  │  │  • Manejo de timeouts                              │  │   │
+│  │  │  • Heartbeat monitoring                            │  │   │
+│  │  │  • Sistema de prioridades (3 niveles)              │  │   │
+│  │  └────────────────────────────────────────────────────┘  │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+┌───────────────────────────────▼─────────────────────────────────┐
+│                      CAPA DE DATOS                              │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │            PostgreSQL (Puerto 5432)                      │   │
+│  │  ┌────────────────────────────────────────────────────┐  │   │
+│  │  │  Base de Datos Compartida (ACID)                   │  │   │
+│  │  │  • usuarios                                         │  │   │
+│  │  │  • cuentas_bancarias                               │  │   │
+│  │  │  • tarjetas                                         │  │   │
+│  │  │  • transacciones                                    │  │   │
+│  │  │  • movimientos                                      │  │   │
+│  │  │  • sesiones                                         │  │   │
+│  │  │  • cuentas_compartidas (rol-based access)          │  │   │
+│  │  │  • asesores                                         │  │   │
+│  │  └────────────────────────────────────────────────────┘  │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-````│ - Gestión de cuentas                   │
+---
 
-│  - Formulario de transacciones          │
+### 🔄 Flujo de Operación con Locks Distribuidos
 
-### 🔐 Flujo de Operación con Locks│  - Historial y auditoría               │
+#### Ejemplo: Transferencia entre cuentas
 
-│  - Dashboard administrativo             │
+```
+┌────────────┐     1. POST /api/banco/transferir     ┌──────────┐
+│  Cliente   │─────────────────────────────────────▶│ Worker 1 │
+│  (React)   │   {origen: "A", destino: "B", $100}  │ (3001)   │
+└────────────┘                                        └────┬─────┘
+                                                           │
+                 2. LOCK_REQUEST ["cuenta-A", "cuenta-B"] │
+                 ┌──────────────────────────────────────────┘
+                 │
+                 ▼
+          ┌──────────────┐
+          │ Coordinador  │  3. Verificar disponibilidad
+          │   (4000)     │     de recursos
+          └──────┬───────┘
+                 │
+         ┌───────┴────────┐
+         │                │
+    ✅ Disponible    ❌ Ocupado
+         │                │
+         │                └──▶ Agregar a cola FIFO
+         │                     ⏱️  Esperar liberación
+         ▼
+   LOCK_GRANTED ───────────┐
+         │                 │
+         │                 ▼
+         │          ┌──────────┐
+         └─────────▶│ Worker 1 │  4. Sección crítica:
+                    │ (3001)   │     - Leer saldos (BD)
+                    └────┬─────┘     - Validar fondos
+                         │           - Actualizar saldos
+                         │           - Registrar transacción
+                         │
+                         │  5. LOCK_RELEASE ["cuenta-A", "cuenta-B"]
+                         └────────────┐
+                                      ▼
+                               ┌──────────────┐
+                               │ Coordinador  │  6. Liberar locks
+                               │   (4000)     │     Procesar cola
+                               └──────┬───────┘
+                                      │
+                         ┌────────────┴────────────┐
+                         │                         │
+                    Siguiente en cola?        Cola vacía
+                         │                         │
+                    LOCK_GRANTED ───▶ Worker X    ✅ Fin
+```
 
-**Ejemplo: Transferencia entre cuentas**└────────────────┬────────────────────────┘
+**🎓 Conceptos de Sistemas Distribuidos Aplicados:**
 
-                 │ HTTP/REST
+- **Exclusión Mutua**: Solo un worker puede modificar una cuenta a la vez
+- **Sección Crítica**: Código protegido por lock (lectura + validación + escritura)
+- **Atomicidad**: Operación completa o rollback (transacciones ACID)
+- **Orden FIFO**: Prevención de starvation en cola de espera
+- **Deadlock Prevention**: Ordenamiento canónico de recursos
+- **Timeout Management**: Liberación automática de locks colgados
 
-```┌────────────────▼────────────────────────┐
+---
 
-1. Cliente → Worker1: "Transferir $100 de CTA-A a CTA-B"│    BACKEND (Node.js + Express)          │
+### 📁 Estructura del Proyecto
 
-│  - API REST endpoints                   │
-
-2. Worker1 → Coordinador: LOCK_REQUEST [CTA-A, CTA-B]│  - Validación de operaciones            │
-
-   │  - Control de bloqueos distribuido      │
-
-3. Coordinador verifica:│  - Manejo de transacciones atómicas     │
-
-   - ¿Están disponibles CTA-A y CTA-B?└────────────────┬────────────────────────┘
-
-   - ✅ SÍ → LOCK_GRANTED                 │
-
-   - ❌ NO → Agrega a cola de espera┌────────────────▼────────────────────────┐
-
-│  GESTOR DE RECURSOS DISTRIBUIDOS       │
-
-4. Worker1 recibe LOCK_GRANTED:│  - Sistema de locks (mutex)             │
-
-   - Lee saldos de BD│  - Manejo de cuentas compartidas        │
-
-   - Valida operación│  - Log de transacciones                │
-
-   - Actualiza saldos en BD│  - Sincronización de estado            │
-
-   - Worker1 → Coordinador: LOCK_RELEASE [CTA-A, CTA-B]└─────────────────────────────────────────┘
-
-````
-
-5. Coordinador libera locks:
-
-   - Procesa cola de espera## 🔧 Tecnologías
-
-   - Concede locks a siguiente en fila
-
-````### Backend
-
-- **Node.js** - Runtime de JavaScript en servidor
-
-### 📁 Estructura del Proyecto- **Express.js** - Framework web minimalista
-
-- **TypeScript** - Tipado fuerte en JavaScript
-
-```- **UUID** - Generación de IDs únicos
-
-Banco/
-
-├── coordinador/          # Servidor coordinador de locks### Frontend
-
-│   ├── src/- **React** - Librería de UI
-
-│   │   ├── server.ts    # Servidor Socket.IO en puerto 4000- **TypeScript** - Tipado fuerte
-
-│   │   ├── coordinator.ts- **Axios** - Cliente HTTP
-
-│   │   └── types.ts- **React Icons** - Iconos SVG
-
-│   ├── package.json- **CSS3** - Estilos modernos (Flexbox, Grid)
-
-│   └── tsconfig.json
-
-│### Shared
-
-├── worker/              # Instancias del banco (workers)- **Types.ts** - Tipos compartidos entre frontend y backend
-
+```
+bancoDistribuidos/
+├── coordinador/                # 🎯 Servidor coordinador de locks
 │   ├── src/
-
-│   │   ├── server.ts    # API REST + Auth## 📁 Estructura del Proyecto
-
-│   │   ├── auth/        # Autenticación
-
-│   │   ├── services/    # Lógica de negocio```
-
-│   │   ├── client/      # Cliente del coordinador/Banco
-
-│   │   └── prisma/      # Schema de BD├── backend/
-
-│   ├── package.json│   ├── src/
-
-│   └── tsconfig.json│   │   ├── server.ts           # Servidor Express principal
-
-││   │   ├── resourceManager.ts  # Gestor de recursos distribuidos
-
-├── shared/              # Tipos compartidos│   │   └── types.ts            # Tipos compartidos
-
-│   └── types.ts         # Protocolo de comunicación│   ├── package.json
-
-││   └── tsconfig.json
-
-└── scripts/             # Scripts de deployment├── frontend/
-
-    ├── start-all.sh     # Inicia coordinador + 3 workers│   ├── src/
-
-    └── stop-all.sh│   │   ├── App.tsx             # Componente principal
-
-```│   │   ├── index.tsx           # Entry point
-
-│   │   ├── api.ts              # Cliente HTTP
-
-### 🚀 Inicio Rápido│   │   ├── types.ts            # Tipos
-
+│   │   ├── server.ts          # Socket.IO server (puerto 4000)
+│   │   └── coordinator/
+│   │       ├── coordinator.ts  # Lógica principal del coordinador
+│   │       ├── locks.ts       # Gestión de locks distribuidos
+│   │       ├── queue.ts       # Cola FIFO con prioridades
+│   │       ├── deadlock.ts    # Detección y prevención de deadlocks
+│   │       ├── workers.ts     # Registro y monitoreo de workers
+│   │       ├── events.ts      # Manejo de eventos Socket.IO
+│   │       └── types.ts       # Tipos del protocolo de locks
+│   ├── Dockerfile
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── worker/                     # 🏢 Instancias del banco (workers)
+│   ├── src/
+│   │   ├── server.ts          # Express API REST + Socket.IO client
+│   │   ├── auth/
+│   │   │   └── authService.ts # Autenticación JWT + bcrypt
+│   │   ├── services/
+│   │   │   ├── bancoService.ts           # 💰 Operaciones bancarias con locks
+│   │   │   ├── cuentasService.ts         # Gestión de cuentas
+│   │   │   ├── tarjetasService.ts        # Gestión de tarjetas
+│   │   │   ├── cuentasCompartidasService.ts # Cuentas multi-usuario
+│   │   │   └── advisorService.ts         # Sistema de asesoría
+│   │   ├── prisma/
+│   │   │   └── client.ts      # Cliente Prisma singleton
+│   │   └── client/
+│   │       └── coordinatorClient.ts # Cliente del coordinador
+│   ├── prisma/
+│   │   ├── schema.prisma      # 📊 Schema de base de datos
+│   │   └── migrations/        # Migraciones versionadas
+│   ├── scripts/
+│   │   └── seed-advisor.ts    # Datos de prueba
+│   ├── Dockerfile
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── frontend/                   # 🎨 Interfaz de usuario
+│   ├── src/
+│   │   ├── app/               # Next.js App Router
+│   │   │   ├── page.tsx       # Landing page
+│   │   │   ├── dashboard/     # Dashboard principal
+│   │   │   ├── accounts/      # Gestión de cuentas
+│   │   │   ├── cards/         # Gestión de tarjetas
+│   │   │   ├── transfer/      # Transferencias
+│   │   │   ├── operations/    # Depósitos y retiros
+│   │   │   ├── transactions/  # Historial
+│   │   │   ├── advisor/       # Sistema de asesoría
+│   │   │   └── settings/      # Configuración
 │   │   ├── components/
+│   │   │   ├── AuthForm.tsx           # Login/Register
+│   │   │   ├── Dashboard.tsx          # Dashboard principal
+│   │   │   ├── AccountCard.tsx        # Tarjeta de cuenta
+│   │   │   ├── ConnectionStatus.tsx   # Estado de conexión
+│   │   │   ├── NotificationCenter.tsx # Notificaciones real-time
+│   │   │   ├── SessionMonitor.tsx     # Monitor de sesión
+│   │   │   └── ui/            # Componentes reutilizables
+│   │   ├── context/
+│   │   │   ├── AppContext.tsx # Estado global de la app
+│   │   │   └── ToastContext.tsx # Sistema de notificaciones
+│   │   ├── hooks/
+│   │   │   └── useSocket.ts   # Hook de Socket.IO
+│   │   ├── lib/
+│   │   │   ├── api.ts         # Cliente HTTP (Axios)
+│   │   │   ├── auth.ts        # Utilidades de autenticación
+│   │   │   └── validation.ts  # Validaciones de formularios
+│   │   └── types/
+│   │       └── index.ts       # Tipos TypeScript
+│   ├── package.json
+│   ├── next.config.ts
+│   └── tsconfig.json
+│
+├── shared/                     # 🔧 Código compartido
+│   ├── types.ts               # Tipos compartidos
+│   ├── validation.ts          # Validaciones Zod
+│   ├── logger.ts              # Logger Winston
+│   └── errorHandling.ts       # Manejo de errores
+│
+├── microservicios/             # 🔔 Microservicios adicionales
+│   └── notificaciones/
+│       └── src/
+│           ├── index.ts       # Servidor de notificaciones
+│           ├── grpcServer.ts  # gRPC server
+│           └── services/      # Lógica de notificaciones
+│
+├── scripts/                    # 🛠️ Scripts de utilidad
+│   ├── health-check.sh        # Health check (Bash)
+│   └── health-check.ps1       # Health check (PowerShell)
+│
+├── docker-compose.yml          # 🐋 Docker sin PostgreSQL
+├── docker-compose.full.yml     # 🐋 Docker con PostgreSQL
+├── docker-compose.dev.yml      # 🐋 Docker para desarrollo
+├── Caddyfile                   # Reverse proxy config
+├── ecosystem.config.json       # PM2 config
+├── .env.example                # Template de variables de entorno
+└── README.md                   # Este archivo
+```
 
-```bash│   │   │   ├── AccountList.tsx
+---
 
-# 1. Instalar dependencias│   │   │   ├── TransactionForm.tsx
+### 🔧 Stack Tecnológico
 
-cd coordinador && bun install│   │   │   ├── TransactionHistory.tsx
+#### Backend (Workers)
 
-cd ../worker && bun install│   │   │   └── AdminDashboard.tsx
+| Tecnología           | Versión | Propósito                          |
+| -------------------- | ------- | ---------------------------------- |
+| **Bun**              | v1.0+   | Runtime JavaScript ultra-rápido    |
+| **Node.js**          | v18+    | Runtime alternativo (compatible)   |
+| **Express.js**       | v4.18+  | Framework web minimalista          |
+| **TypeScript**       | v5.0+   | Tipado estático                    |
+| **Prisma ORM**       | v5.0+   | ORM type-safe para PostgreSQL      |
+| **PostgreSQL**       | v15+    | Base de datos relacional (ACID)    |
+| **Socket.IO Client** | v4.6+   | Cliente WebSocket para coordinador |
+| **JWT**              | v9.0+   | Autenticación stateless            |
+| **bcrypt**           | v5.1+   | Hash de contraseñas                |
+| **Zod**              | v3.22+  | Validación de schemas              |
+| **Winston**          | v3.11+  | Sistema de logging                 |
 
-│   │   ├── styles/
+#### Coordinador
 
-# 2. Configurar base de datos│   │   │   ├── AccountList.css
+| Tecnología     | Versión | Propósito                      |
+| -------------- | ------- | ------------------------------ |
+| **Bun**        | v1.0+   | Runtime JavaScript             |
+| **Socket.IO**  | v4.6+   | WebSocket server bidireccional |
+| **TypeScript** | v5.0+   | Tipado estático                |
+| **UUID**       | v9.0+   | Generación de IDs únicos       |
 
-cd worker│   │   │   ├── TransactionForm.css
+#### Frontend
 
-echo "DATABASE_URL=postgresql://user:pass@host:5432/banco" > .env│   │   │   ├── TransactionHistory.css
+| Tecnología           | Versión | Propósito                     |
+| -------------------- | ------- | ----------------------------- |
+| **React**            | v18+    | Librería de UI                |
+| **Next.js**          | v14+    | Framework React con SSR       |
+| **TypeScript**       | v5.0+   | Tipado estático               |
+| **Axios**            | v1.6+   | Cliente HTTP                  |
+| **Socket.IO Client** | v4.6+   | WebSocket para notificaciones |
+| **Tailwind CSS**     | v3.4+   | Utility-first CSS framework   |
+| **React Icons**      | v4.12+  | Iconos SVG                    |
+| **React Hook Form**  | v7.49+  | Manejo de formularios         |
 
-bunx prisma db push│   │   │   └── AdminDashboard.css
+#### DevOps
 
-│   │   ├── index.css
+| Tecnología         | Propósito                        |
+| ------------------ | -------------------------------- |
+| **Docker**         | Containerización                 |
+| **Docker Compose** | Orquestación multi-contenedor    |
+| **GitHub Actions** | CI/CD pipeline                   |
+| **Caddy**          | Reverse proxy y HTTPS automático |
+| **PM2**            | Process manager para Node.js     |
 
-# 3. Iniciar coordinador│   │   └── App.css
+---
 
-cd ../coordinador│   ├── public/
+### 🔒 Protocolo de Locks Distribuidos
 
-bun run dev    # Puerto 4000│   │   └── index.html
+#### Mensajes Worker → Coordinador
 
-│   └── package.json
-
-# 4. Iniciar workers (en terminales separadas)├── shared/
-
-cd ../worker│   └── types.ts                # Tipos compartidos
-
-PORT=3001 WORKER_ID=worker-1 bun run dev└── docs/
-
-PORT=3002 WORKER_ID=worker-2 bun run dev```
-
-PORT=3003 WORKER_ID=worker-3 bun run dev
-
-```## 🚀 Quick Start
-
-
-
-### 🔒 Protocolo de Locks### Instalación
-
-
-
-#### Mensajes Worker → Coordinador1. **Instalar dependencias del Backend**
-
-```bash
-
-| Mensaje | Descripción |cd backend && npm install && cd ..
-
-|---------|-------------|```
-
-| `REGISTER_WORKER` | Registrar trabajador al conectar |
-
-| `LOCK_REQUEST` | Solicitar lock sobre recursos |2. **Instalar dependencias del Frontend**
-
-| `LOCK_RELEASE` | Liberar lock |```bash
-
-| `HEARTBEAT` | Señal de vida (cada 3s) |cd frontend && npm install && cd ..
-
-````
+| Mensaje           | Parámetros                                       | Descripción                   |
+| ----------------- | ------------------------------------------------ | ----------------------------- |
+| `REGISTER_WORKER` | `{ workerId, capabilities }`                     | Registrar worker al conectar  |
+| `LOCK_REQUEST`    | `{ lockId, resourceIds[], operation, priority }` | Solicitar lock sobre recursos |
+| `LOCK_RELEASE`    | `{ lockId }`                                     | Liberar lock                  |
+| `HEARTBEAT`       | `{ workerId, timestamp }`                        | Señal de vida (cada 5s)       |
+| `CANCEL_LOCK`     | `{ lockId }`                                     | Cancelar solicitud en cola    |
 
 #### Mensajes Coordinador → Worker
 
-### Ejecución
+| Mensaje             | Parámetros                             | Descripción                |
+| ------------------- | -------------------------------------- | -------------------------- |
+| `WORKER_REGISTERED` | `{ workerId, timestamp }`              | Confirmación de registro   |
+| `LOCK_GRANTED`      | `{ lockId, resourceIds[], grantedAt }` | Lock concedido ✅          |
+| `LOCK_DENIED`       | `{ lockId, reason, retryAfter }`       | Lock denegado ❌           |
+| `LOCK_QUEUED`       | `{ lockId, position, estimatedWait }`  | Agregado a cola ⏱️         |
+| `LOCK_TIMEOUT`      | `{ lockId }`                           | Lock expiró por timeout ⏰ |
+| `DEADLOCK_DETECTED` | `{ lockId, involvedResources[] }`      | Deadlock detectado 🔴      |
 
-| Mensaje | Descripción |
+#### Estados de un Lock
 
-|---------|-------------|**Terminal 1: Backend**
-
-| `WORKER_REGISTERED` | Confirmación de registro |```bash
-
-| `LOCK_GRANTED` | Lock concedido |cd backend && npm run dev
-
-| `LOCK_DENIED` | Lock denegado (en cola) |```
-
-| `FORCE_RELEASE` | Forzar liberación por timeout |
-
-**Terminal 2: Frontend**
-
-### 📊 Ejemplo de Request```bash
-
-cd frontend && npm start
-
-`typescript`
-
-// Worker solicita lock para transferencia
-
-{✅ Backend: http://localhost:3001
-
-tipo: "LOCK_REQUEST",✅ Frontend: http://localhost:3000
-
-workerId: "worker-1",✅ **Swagger API Docs**: http://localhost:3001/api-docs
-
-requestId: "uuid-123",
-
-recursos: [## 📚 Documentación de la API (Swagger)
-
-    { tipo: "CUENTA", id: "cuenta-abc" },
-
-    { tipo: "CUENTA", id: "cuenta-xyz" }El sistema incluye documentación interactiva de la API usando **Swagger/OpenAPI 3.0**.
-
-],
-
-prioridad: 1, // 0=BAJA, 1=NORMAL, 2=ALTA, 3=CRITICA### Acceder a Swagger UI
-
-timeout: 10000, // 10 segundos
-
-operacion: "transferencia"Una vez que el backend esté corriendo, visita:
-
-}
-
-```🔗 **http://localhost:3001/api-docs**
-
-
-
-### ⚡ Características### Características de Swagger UI
-
-
-
-- ✅ **Locks distribuidos** con coordinación centralizada- 📖 **Documentación completa** de todos los endpoints REST
-
-- ✅ **Prioridades** en cola de espera- 🧪 **Pruebas interactivas** - Ejecuta requests directamente desde el navegador
-
-- ✅ **Timeouts** automáticos para evitar deadlocks- 📋 **Esquemas de datos** - Visualiza todas las estructuras de tipos
-
-- ✅ **Heartbeats** para detección de workers caídos- 🏷️ **Agrupación por tags** - Endpoints organizados por categoría:
-
-- ✅ **Liberación automática** al desconectar worker  - 💳 Cuentas
-
-- ✅ **Múltiples recursos** en una sola solicitud (atomicidad)  - 💸 Transacciones (Depósito, Retiro, Transferencia)
-
-- ✅ **Base de datos compartida** (PostgreSQL)  - 🎴 Tarjetas (Débito, Crédito, Prepagadas)
-
-  - 💰 Préstamos
-
-### 🛠️ Tecnologías  - 📈 Inversiones
-
-  - 👥 Beneficiarios
-
-- **Runtime**: Bun  - 🔔 Notificaciones
-
-- **Framework**: Express.js  - ⏰ Pagos Programados
-
-- **WebSockets**: Socket.IO (coordinador ↔ workers)  - 🛡️ Límites
-
-- **Base de Datos**: PostgreSQL + Prisma ORM  - 📊 Historial y Auditoría
-
-- **Auth**: JWT + bcrypt  - ⚙️ Administración
-
-- **Validación**: Zod
-
-- **Rate Limiting**: express-rate-limit### Ejemplo de uso de Swagger
-
-
-
----1. Abre http://localhost:3001/api-docs
-
-2. Selecciona un endpoint (ej: `POST /api/transacciones/depositar`)
-
-**Autor**: Sistema Bancario Distribuido  3. Click en "Try it out"
-
-**Patrón**: Coordinador-Trabajador  4. Modifica el JSON de ejemplo con tus datos
-
-**Licencia**: MIT5. Click en "Execute"
-
-6. Observa la respuesta en tiempo real
-
-### Exportar especificación OpenAPI
-
-El spec JSON completo está disponible en:
+```
+┌──────────────┐
+│  REQUESTED   │  ──▶  Lock solicitado
+└──────┬───────┘
+       │
+       ├──▶ ┌──────────────┐
+       │    │   QUEUED     │  ──▶  En cola de espera
+       │    └──────┬───────┘
+       │           │
+       ▼           ▼
+┌──────────────────────┐
+│      GRANTED         │  ──▶  Lock concedido (sección crítica)
+└──────┬───────────────┘
+       │
+       ├──▶ ┌──────────────┐
+       │    │   RELEASED   │  ──▶  Lock liberado
+       │    └──────────────┘
+       │
+       ├──▶ ┌──────────────┐
+       │    │   TIMEOUT    │  ──▶  Expiró por timeout
+       │    └──────────────┘
+       │
+       └──▶ ┌──────────────┐
+            │   DENIED     │  ──▶  Denegado (error)
+            └──────────────┘
 ```
 
-GET http://localhost:3001/api-docs.json
+#### Prioridades de Locks
 
-````
+| Nivel    | Valor | Uso                                            | Timeout |
+| -------- | ----- | ---------------------------------------------- | ------- |
+| `HIGH`   | 3     | Operaciones críticas (retiros, transferencias) | 60s     |
+| `NORMAL` | 2     | Operaciones estándar (depósitos, consultas)    | 30s     |
+| `LOW`    | 1     | Operaciones administrativas (reportes)         | 15s     |
 
-Puedes importar este JSON en herramientas como Postman, Insomnia, o cualquier cliente que soporte OpenAPI 3.0.## 📊 Datos de Ejemplo
+---
 
-| Cuenta | Titular | Número | Saldo |
-|--------|---------|--------|-------|
-| acc-001 | Juan Pérez | 1000001 | $5,000 |
-| acc-002 | María García | 1000002 | $3,500 |
-| acc-003 | Carlos López | 1000003 | $7,200 |
+### 🎓 Conceptos de Sistemas Distribuidos Implementados
 
-## 🔐 Control de Concurrencia
+#### 1. Exclusión Mutua (Mutual Exclusion)
 
-El sistema implementa:
-- ✅ **Mutex**: Exclusión mutua para acceso a cuentas
-- ✅ **Bloqueos Distribuidos**: Prevención de race conditions
-- ✅ **Transacciones Atómicas**: Operaciones indivisibles
-- ✅ **Prevención de Deadlock**: Adquisición ordenada de locks
+```typescript
+// bancoService.ts
+async transferir(origenId: string, destinoId: string, monto: number) {
+  // 🔒 Solicitar lock de AMBAS cuentas (orden canónico)
+  const lockId = await this.coordinatorClient.lockCuenta(
+    [origenId, destinoId].sort(), // Prevenir deadlock
+    `transferencia de $${monto}`,
+    Prioridad.HIGH
+  );
 
-## 📡 Operaciones Disponibles
+  try {
+    // ✅ SECCIÓN CRÍTICA: Solo este worker puede acceder
+    const [origen, destino] = await Promise.all([
+      prisma.cuenta.findUnique({ where: { id: origenId } }),
+      prisma.cuenta.findUnique({ where: { id: destinoId } })
+    ]);
 
-- **Depósitos**: POST `/api/transactions/deposit`
-- **Retiros**: POST `/api/transactions/withdrawal`
-- **Transferencias**: POST `/api/transactions/transfer`
-- **Historial**: GET `/api/transactions/{accountId}`
-- **Auditoría**: GET `/api/audit/{accountId}`
-- **Admin**: GET `/api/admin/state`
+    // Validar y ejecutar transacción...
+
+  } finally {
+    // 🔓 Siempre liberar locks
+    await this.coordinatorClient.releaseLock(lockId);
+  }
+}
+```
+
+#### 2. Prevención de Deadlocks
+
+**Estrategia: Ordenamiento Canónico de Recursos**
+
+```typescript
+// Siempre solicitar recursos en el mismo orden (alfabético de IDs)
+const recursos = [cuentaA, cuentaB, cuentaC].sort();
+await lockMultiple(recursos); // Previene ciclos de espera
+```
+
+**Ejemplo de deadlock prevenido:**
+
+```
+❌ SIN ORDENAMIENTO:
+Worker 1: Lock(A) → espera Lock(B)
+Worker 2: Lock(B) → espera Lock(A)  ← DEADLOCK!
+
+✅ CON ORDENAMIENTO:
+Worker 1: Lock(A) → Lock(B)  ✓
+Worker 2: Lock(A) → cola...  ⏱️ (espera a que Worker 1 libere A)
+```
+
+#### 3. Transacciones ACID
+
+```typescript
+// Prisma garantiza atomicidad
+await prisma.$transaction(async (tx) => {
+  await tx.cuenta.update({
+    where: { id: origenId },
+    data: { saldo: { decrement: monto } },
+  });
+
+  await tx.cuenta.update({
+    where: { id: destinoId },
+    data: { saldo: { increment: monto } },
+  });
+
+  await tx.transaccion.create({
+    data: { origenId, destinoId, monto, tipo: "TRANSFERENCIA" },
+  });
+}); // Todo o nada
+```
+
+#### 4. Tolerancia a Fallos
+
+- **Heartbeat Monitoring**: Workers envían señal cada 5s
+- **Timeout Management**: Locks expirados liberados automáticamente
+- **Reconnection Logic**: Workers se reconectan al coordinador
+- **Worker Failure Detection**: Coordinador detecta workers caídos
+- **Lock Recovery**: Locks de workers caídos liberados automáticamente
+
+---
+
+### 🌐 Comunicación y Eventos
+
+#### Socket.IO Events (Real-time)
+
+**Worker ↔ Coordinador:**
+
+```typescript
+// Worker solicita lock
+socket.emit("LOCK_REQUEST", {
+  lockId: uuid(),
+  resourceIds: ["cuenta-123", "cuenta-456"],
+  operation: "transferencia",
+  priority: Prioridad.HIGH,
+});
+
+// Coordinador responde
+socket.on("LOCK_GRANTED", (data) => {
+  console.log(`Lock concedido: ${data.lockId}`);
+  // Ejecutar sección crítica...
+});
+```
+
+**Frontend ↔ Worker:**
+
+```typescript
+// Frontend recibe notificación de operación
+socket.on("TRANSACTION_COMPLETED", (data) => {
+  toast.success(`Transferencia exitosa: $${data.monto}`);
+  updateBalance();
+});
+```
+
+#### REST API Endpoints (HTTP)
+
+**Autenticación:**
+
+- `POST /api/auth/register` - Registrar usuario
+- `POST /api/auth/login` - Iniciar sesión (retorna JWT)
+- `POST /api/auth/logout` - Cerrar sesión
+- `GET /api/auth/me` - Obtener usuario actual
+
+**Operaciones Bancarias:**
+
+- `POST /api/banco/transferir` - Transferencia entre cuentas
+- `POST /api/banco/depositar` - Depósito en cuenta
+- `POST /api/banco/retirar` - Retiro de cuenta
+- `GET /api/banco/saldo/:cuentaId` - Consultar saldo
+
+**Gestión de Cuentas:**
+
+- `GET /api/cuentas` - Listar cuentas del usuario
+- `POST /api/cuentas` - Crear nueva cuenta
+- `GET /api/cuentas/:id` - Detalle de cuenta
+- `DELETE /api/cuentas/:id` - Cerrar cuenta
+
+**Tarjetas:**
+
+- `GET /api/tarjetas` - Listar tarjetas
+- `POST /api/tarjetas` - Solicitar nueva tarjeta
+- `PUT /api/tarjetas/:id/activar` - Activar tarjeta
+- `PUT /api/tarjetas/:id/bloquear` - Bloquear tarjeta
+
+**Transacciones:**
+
+- `GET /api/transacciones` - Historial de transacciones
+- `GET /api/transacciones/:id` - Detalle de transacción
+- `GET /api/movimientos/:cuentaId` - Movimientos de cuenta
+
+**Cuentas Compartidas:**
+
+- `GET /api/cuentas-compartidas` - Listar cuentas compartidas
+- `POST /api/cuentas-compartidas/agregar-usuario` - Compartir cuenta
+- `PUT /api/cuentas-compartidas/cambiar-rol` - Cambiar permisos
+- `DELETE /api/cuentas-compartidas/remover-usuario` - Remover acceso
+
+**Sistema de Asesoría:**
+
+- `GET /api/advisor/asesores` - Listar asesores disponibles
+- `POST /api/advisor/solicitar` - Solicitar asesoría
+- `GET /api/advisor/sesiones` - Sesiones de asesoría
+- `PUT /api/advisor/sesiones/:id/completar` - Completar sesión
+
+---
+
+### 🔐 Seguridad
+
+#### Autenticación y Autorización
+
+```typescript
+// JWT con expiración de 24 horas
+const token = jwt.sign({ usuarioId, email, rol }, process.env.JWT_SECRET!, {
+  expiresIn: "24h",
+});
+
+// Middleware de autenticación
+async function authMiddleware(req: Request, res: Response, next: NextFunction) {
+  const token = req.headers.authorization?.replace("Bearer ", "");
+
+  if (!token) {
+    return res.status(401).json({ error: "No autorizado" });
+  }
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET!);
+    req.user = payload;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: "Token inválido" });
+  }
+}
+```
+
+#### Control de Acceso Basado en Roles (RBAC)
+
+Cuentas compartidas con 3 niveles de permisos:
+
+| Rol          | Permisos                                                                  |
+| ------------ | ------------------------------------------------------------------------- |
+| `TITULAR`    | Todas las operaciones (transferir, depositar, retirar, compartir, cerrar) |
+| `AUTORIZADO` | Operaciones limitadas (transferir, depositar, retirar)                    |
+| `CONSULTA`   | Solo consultar saldo y movimientos                                        |
+
+```typescript
+// Verificar permisos antes de operación
+const permiso = await prisma.usuarioCuenta.findUnique({
+  where: { usuarioId_cuentaId: { usuarioId, cuentaId } },
+});
+
+if (permiso.rol === "CONSULTA") {
+  throw new Error("No tienes permisos para realizar esta operación");
+}
+```
+
+#### Validación de Datos
+
+```typescript
+// Zod schema para validación
+const transferenciaSchema = z.object({
+  cuentaOrigenId: z.string().uuid(),
+  cuentaDestinoId: z.string().min(1),
+  monto: z.number().positive().max(1000000),
+  concepto: z.string().optional(),
+});
+
+// Validar antes de procesar
+const data = transferenciaSchema.parse(req.body);
+```
+
+#### Protección contra Ataques
+
+- **SQL Injection**: Prisma ORM con prepared statements
+- **XSS**: Sanitización de inputs + CSP headers
+- **CSRF**: Tokens CSRF en formularios
+- **Rate Limiting**: 60 requests/minuto por IP
+- **CORS**: Whitelist de orígenes permitidos
+- **Password Hashing**: bcrypt con salt rounds=10
 
 ## 🚀 Deployment
 
@@ -593,6 +862,7 @@ El sistema implementa:
 El proyecto incluye deployment automático usando **Docker** + **GitHub Actions**:
 
 1. **Configura los GitHub Secrets** (Settings → Secrets → Actions):
+
    - `SSH_HOST`: IP o dominio de tu servidor
    - `SSH_USERNAME`: Usuario SSH (ej: `root`, `ubuntu`)
    - `SSH_PRIVATE_KEY`: Tu llave privada SSH completa
@@ -603,6 +873,8 @@ El proyecto incluye deployment automático usando **Docker** + **GitHub Actions*
    git add .
    git commit -m "feat: nueva funcionalidad"
    git push origin main
+   ```
+
 ````
 
 3. **GitHub Actions** automáticamente:
@@ -750,7 +1022,7 @@ GitHub Push → GitHub Actions → SSH al Servidor → Docker Compose
                                                     └── worker-3:3003
 ```
 
-📚 **Documentación completa Docker**: Ver [DOCKER-SETUP.md](./DOCKER-SETUP.md)  
+📚 **Documentación completa Docker**: Ver [DOCKER-SETUP.md](./DOCKER-SETUP.md)
 📚 **Deployment manual (sin Docker)**: Ver [DEPLOYMENT.md](./DEPLOYMENT.md)
 
 ## 🚨 Troubleshooting Común
@@ -1035,16 +1307,16 @@ Si ninguna solución funciona:
 
 ## 🎓 Conceptos Aprendidos
 
-✅ Sincronización de recursos compartidos  
-✅ Manejo de condiciones de carrera  
-✅ Transacciones ACID  
-✅ Auditoría y logging  
-✅ APIs REST  
-✅ Desarrollo full-stack  
-✅ **CI/CD con GitHub Actions**  
-✅ **Deployment automatizado con SSH**  
-✅ **Gestión de procesos con Docker**  
-✅ **Sistema de locks distribuidos**  
+✅ Sincronización de recursos compartidos
+✅ Manejo de condiciones de carrera
+✅ Transacciones ACID
+✅ Auditoría y logging
+✅ APIs REST
+✅ Desarrollo full-stack
+✅ **CI/CD con GitHub Actions**
+✅ **Deployment automatizado con SSH**
+✅ **Gestión de procesos con Docker**
+✅ **Sistema de locks distribuidos**
 ✅ **Coordinación de workers**
 
 ---
@@ -1052,3 +1324,4 @@ Si ninguna solución funciona:
 **¡Explora los sistemas distribuidos!** 🚀
 
 Si encuentras algún problema no documentado, [abre un issue](https://github.com/PoloBustillo/bancoDistribuidos/issues/new) 📝
+````

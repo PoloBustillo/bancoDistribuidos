@@ -394,9 +394,8 @@ app.get(
               },
             },
           },
-          // 🎓 Cargar tarjetas individuales
+          // 🎓 Cargar tarjetas individuales (todas, no solo activas)
           tarjetas: {
-            where: { estado: "ACTIVA" },
             select: {
               id: true,
               numeroTarjeta: true,

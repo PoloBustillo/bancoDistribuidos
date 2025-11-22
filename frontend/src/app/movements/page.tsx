@@ -207,12 +207,22 @@ function MovementsContent() {
                   ))}
               </select>
               {selectedAccount && (
-                <p className="mt-2 text-sm text-gray-600">
-                  Saldo actual:{" "}
-                  <span className="font-semibold">
-                    ${selectedAccount.saldo.toFixed(2)}
-                  </span>
-                </p>
+                <div className="mt-3 p-3 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-blue-900">
+                      Saldo disponible:
+                    </span>
+                    <span className="text-lg font-bold text-blue-700">
+                      ${selectedAccount.saldo.toFixed(2)}
+                    </span>
+                  </div>
+                  {operation === "withdraw" && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      💡 Puedes retirar hasta $
+                      {selectedAccount.saldo.toFixed(2)}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
 
