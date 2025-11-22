@@ -145,10 +145,22 @@ jobs:
             # Crear carpeta de logs
             mkdir -p logs
 
-            echo "🛑 Deteniendo contenedores existentes..."
-            docker compose down --remove-orphans || true
+            echo "🛑 Deteniendo contenedores existentes del banco..."
+            timeout 60 docker compose down --remove-orphans 2>&1 || true
 
-            echo "� Login a GitHub Container Registry..."
+            echo "🧹 Limpiando recursos Docker..."
+            # Detener TODOS los contenedores con timeout
+            timeout 30 docker stop $(docker ps -aq) 2>/dev/null || true
+            # Eliminar contenedores detenidos
+            timeout 20 docker container prune -f 2>&1 || true
+            # Eliminar imágenes antiguas (rápido, solo dangling)
+            timeout 20 docker image prune -f 2>&1 || true
+            # Eliminar volúmenes huérfanos
+            timeout 20 docker volume prune -f 2>&1 || true
+            
+            echo "✅ Limpieza completada"
+
+            echo "🔐 Login a GitHub Container Registry..."
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
             echo "📦 Pulling latest images from GHCR..."
@@ -161,10 +173,7 @@ jobs:
             sleep 15
             
             echo "📊 Estado de contenedores:"
-            docker ps --filter "name=banco-" --format "table {{.Names}}\t{{.Status}}" 2>&1 || echo "Contenedores iniciando..."
-
-            echo "🧹 Limpiando imágenes antiguas..."
-            timeout 30 docker image prune -af --filter "until=24h" > /dev/null 2>&1 || true
+            timeout 10 docker ps --filter "name=banco-" --format "table {{.Names}}\t{{.Status}}" 2>&1 || echo "Verificando..."
 
             echo "✅ Deployment completado!"
 
