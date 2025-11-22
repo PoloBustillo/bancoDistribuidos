@@ -1,5 +1,3 @@
-version: '3.8'
-
 # NOTA: Esta versión usa una base de datos PostgreSQL EXTERNA
 # Para usar PostgreSQL en Docker, usa docker-compose.full.yml
 

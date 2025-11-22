@@ -1,0 +1,181 @@
+# NOTA: Este archivo usa las imágenes BUILD localmente
+# Ideal para desarrollo y pruebas locales
+
+services:
+  # Coordinador
+  coordinador:
+    build:
+      context: .
+      dockerfile: coordinador/Dockerfile
+    container_name: banco-coordinador
+    environment:
+      PORT: 4000
+      NODE_ENV: development
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - banco-network
+
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: banco-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-password}
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - banco-network
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  # Microservicio de Notificaciones
+  notificaciones:
+    build:
+      context: ./microservicios/notificaciones
+      dockerfile: Dockerfile
+    container_name: banco-notificaciones
+    environment:
+      PORT: 4001
+      GRPC_PORT: 50051
+      NODE_ENV: development
+      RABBITMQ_URL: amqp://user:password@rabbitmq:5672
+      NOTIF_QUEUE: notificaciones
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM: ${RESEND_FROM:-"Banco <no-reply@psicologopuebla.com>"}
+    ports:
+      - "4001:4001"  # HTTP API
+      - "50051:50051" # gRPC
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - banco-network
+
+  # Worker 1
+  worker-1:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    container_name: banco-worker-1
+    environment:
+      PORT: 3001
+      COORDINADOR_URL: http://coordinador:4000
+      DATABASE_URL: ${DATABASE_URL}
+      NODE_ENV: development
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      RABBITMQ_URL: amqp://user:password@rabbitmq:5672
+      NOTIF_QUEUE: notificaciones
+      JWT_SECRET: ${JWT_SECRET:-dev_secret}
+    ports:
+      - "3001:3001"
+    depends_on:
+      coordinador:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - banco-network
+
+  # Worker 2
+  worker-2:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    container_name: banco-worker-2
+    environment:
+      PORT: 3002
+      COORDINADOR_URL: http://coordinador:4000
+      DATABASE_URL: ${DATABASE_URL}
+      NODE_ENV: development
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      RABBITMQ_URL: amqp://user:password@rabbitmq:5672
+      NOTIF_QUEUE: notificaciones
+      JWT_SECRET: ${JWT_SECRET:-dev_secret}
+    ports:
+      - "3002:3002"
+    depends_on:
+      coordinador:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - banco-network
+
+  # Worker 3
+  worker-3:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    container_name: banco-worker-3
+    environment:
+      PORT: 3003
+      COORDINADOR_URL: http://coordinador:4000
+      DATABASE_URL: ${DATABASE_URL}
+      NODE_ENV: development
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      RABBITMQ_URL: amqp://user:password@rabbitmq:5672
+      NOTIF_QUEUE: notificaciones
+      JWT_SECRET: ${JWT_SECRET:-dev_secret}
+    ports:
+      - "3003:3003"
+    depends_on:
+      coordinador:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - banco-network
+
+networks:
+  banco-network:
+    driver: bridge
+
+volumes:
+  rabbitmq_data:
+    driver: local
