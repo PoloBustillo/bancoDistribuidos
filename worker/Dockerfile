@@ -3,17 +3,18 @@ FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
-# Crear package.json temporal solo con workspaces necesarios (sin lockfile)
-RUN echo '{"name":"banco-distribuido","workspaces":["shared","worker"]}' > package.json
+# Copiar package.json del root
+COPY package.json ./
 
-# Copiar shared workspace (requerido por worker)
+# Copiar shared workspace completo (con su package.json)
 COPY shared ./shared
 
-# Copiar worker
+# Copiar worker completo (con su package.json y bun.lockb)
 COPY worker ./worker
 
-# Instalar solo dependencias de worker (sin lockfile, más lento pero funciona)
-RUN bun install --production
+# Instalar dependencias de todos los workspaces
+# Bun manejará los workspaces automáticamente desde package.json
+RUN bun install
 
 # Instalar Prisma 6 explícitamente desde package.json del worker
 # bunx prisma siempre descarga la última versión (v7), debemos usar las deps del workspace
@@ -29,19 +30,20 @@ WORKDIR /app
 # Instalar curl para health checks y openssl para Prisma
 RUN apk add --no-cache curl openssl
 
+# IMPORTANTE: Copiar package.json del root para mantener configuración de workspaces
+COPY --from=builder /app/package.json ./package.json
+
 # Copiar node_modules del workspace root (contiene Prisma Client generado)
 COPY --from=builder /app/node_modules ./node_modules
 
-# Copiar shared
+# Copiar shared (código fuente + su package.json)
 COPY --from=builder /app/shared ./shared
 
-# Copiar worker (incluye prisma/schema.prisma)
+# Copiar worker (incluye prisma/schema.prisma + su package.json)
 COPY --from=builder /app/worker ./worker
 
-# Cambiar al directorio del worker
-WORKDIR /app/worker
-
-# No re-generar aquí - Prisma 6 funciona bien con client generado en builder stage
+# No cambiar a WORKDIR /app/worker para ejecutar
+# Bun necesita ejecutarse desde /app para resolver workspaces correctamente
 
 # Exponer puerto (será dinámico según ENV)
 EXPOSE 3001
@@ -50,7 +52,11 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:${PORT:-3001}/api/health || exit 1
 
-# Script de inicio - en Prisma 7, migrate deploy requiere prisma.config.ts complejo
-# Asumimos que las migraciones ya están aplicadas en la BD (hecho manualmente o en otro deploy)
-# Solo generamos el cliente e iniciamos el servidor
-CMD ["bun", "src/server.ts"]
+# Script de inicio - ejecutar desde /app root para que Bun resuelva workspaces
+# Asumimos que las migraciones ya están aplicadas en la BD
+WORKDIR /app
+
+# Establecer NODE_PATH para que Node/Bun encuentre los módulos
+ENV NODE_PATH=/app/node_modules:/app
+
+CMD ["bun", "run", "worker/src/server.ts"]
