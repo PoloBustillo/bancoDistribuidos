@@ -183,10 +183,10 @@ jobs:
             sleep 15
             
             echo "📊 Estado de contenedores:"
-            docker compose ps --format "table {{.Name}}\t{{.Status}}" || true
+            docker ps --filter "name=banco-" --format "table {{.Names}}\t{{.Status}}" 2>&1 || echo "Contenedores iniciando..."
 
             echo "🧹 Limpiando imágenes antiguas..."
-            docker image prune -af --filter "until=24h" > /dev/null 2>&1 || true
+            timeout 30 docker image prune -af --filter "until=24h" > /dev/null 2>&1 || true
 
             echo "✅ Deployment completado!"
 
@@ -197,52 +197,30 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          command_timeout: 2m
+          command_timeout: 1m
           script: |
             cd ${{ env.DEPLOY_PATH }}
 
             echo "🏥 Verificando salud de los servicios..."
             echo ""
             echo "📊 Estado de contenedores:"
-            docker compose ps --format "table {{.Name}}\t{{.Status}}" || true
+            docker ps --filter "name=banco-" --format "table {{.Names}}\t{{.Status}}" 2>&1 || echo "Contenedores iniciando..."
             echo ""
 
-            # Dar tiempo adicional para que los servicios inicien
-            sleep 10
+            # Dar tiempo para health checks
+            sleep 5
 
-            # Verificar Coordinador con timeout
-            if timeout 5 curl -sf http://localhost:4000/health > /dev/null 2>&1; then
-              echo "✅ Coordinador está saludable (puerto 4000)"
-            else
-              echo "⚠️  Coordinador no responde aún (puerto 4000)"
-            fi
-
-            # Verificar Workers con timeout
-            for port in 3001 3002 3003; do
-              if timeout 5 curl -sf http://localhost:$port/api/health > /dev/null 2>&1; then
-                echo "✅ Worker en puerto $port está saludable"
-              else
-                echo "⚠️  Worker en puerto $port no responde aún"
-              fi
-            done
-
-            # Verificar RabbitMQ con timeout
-            if timeout 5 docker compose exec -T rabbitmq rabbitmq-diagnostics ping > /dev/null 2>&1; then
-              echo "✅ RabbitMQ está saludable (puerto 5672)"
-            else
-              echo "⚠️  RabbitMQ no responde aún o está iniciando"
-            fi
-
-            # Verificar Microservicio de Notificaciones con timeout
-            if timeout 5 curl -sf http://localhost:4001/api/health > /dev/null 2>&1; then
-              echo "✅ Microservicio de Notificaciones está saludable (puerto 4001)"
-            else
-              echo "⚠️  Microservicio de Notificaciones no responde aún"
-            fi
+            # Verificar servicios HTTP con timeout corto
+            echo "Verificando endpoints HTTP..."
+            timeout 3 curl -sf http://localhost:4000/health > /dev/null 2>&1 && echo "✅ Coordinador (4000)" || echo "⚠️  Coordinador iniciando"
+            timeout 3 curl -sf http://localhost:3001/api/health > /dev/null 2>&1 && echo "✅ Worker 1 (3001)" || echo "⚠️  Worker 1 iniciando"
+            timeout 3 curl -sf http://localhost:3002/api/health > /dev/null 2>&1 && echo "✅ Worker 2 (3002)" || echo "⚠️  Worker 2 iniciando"
+            timeout 3 curl -sf http://localhost:3003/api/health > /dev/null 2>&1 && echo "✅ Worker 3 (3003)" || echo "⚠️  Worker 3 iniciando"
+            timeout 3 curl -sf http://localhost:4001/api/health > /dev/null 2>&1 && echo "✅ Notificaciones (4001)" || echo "⚠️  Notificaciones iniciando"
 
             echo ""
-            echo "📋 Logs recientes (últimas 20 líneas):"
-            docker compose logs --tail=20 --no-color || true
+            echo "📋 Logs recientes:"
+            timeout 10 docker compose logs --tail=15 --no-color 2>&1 || echo "Logs no disponibles"
 
       - name: Rollback en caso de fallo
         if: failure()
