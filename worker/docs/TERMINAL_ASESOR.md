@@ -1,31 +1,47 @@
-# 🏦 Terminal de Asesor Bancario - Guía Rápida
+# 🏦 Terminal de Asesor Bancario v2.0 - Guía Completa
 
-## Requisitos Previos
+## ✨ Novedades v2.0
+
+### 🎯 Mejoras Principales
+
+✅ **Solo últimos 4 dígitos** - Ya no es necesario el número completo de cuenta/tarjeta  
+✅ **Interfaz mejorada** - Diseño profesional con emojis y bordes visuales  
+✅ **Flujo guiado** - Selección de tipo de recurso (cuenta/tarjeta)  
+✅ **Mejor seguridad** - Búsqueda por terminación de número + código de verificación  
+✅ **Feedback visual** - Estados claros con iconos y colores semánticos
+
+---
+
+## 📋 Requisitos Previos
 
 1. **Worker corriendo:**
+
    ```bash
    cd worker
    bun run dev
    ```
 
 2. **Base de datos migrada:**
+
    ```bash
    bun run prisma:migrate:dev
    ```
 
 3. **Asesor creado:**
+
    ```bash
    bun run seed:advisor
    ```
-   
+
    Esto creará un asesor con ID que necesitas guardar. Ejemplo:
+
    ```
    ID: 550e8400-e29b-41d4-a716-446655440000
    ```
 
 ---
 
-## Iniciar la Terminal
+## 🚀 Iniciar la Terminal
 
 ```bash
 cd worker
@@ -33,17 +49,18 @@ bun run terminal:asesor
 ```
 
 O directamente:
+
 ```bash
 bun terminal-asesor.ts
 ```
 
 ---
 
-## Flujo de Uso
+## 🔐 Flujo de Uso
 
-### 1. Verificación del Cliente
+### Paso 1: Verificación del Cliente
 
-Al iniciar, la terminal pedirá:
+La terminal ahora guía paso a paso:
 
 ```
 🔐 VERIFICACIÓN DE CLIENTE
@@ -62,6 +79,7 @@ Código de verificación (6 dígitos): 384521
 **¿Cómo obtener el código de verificación?**
 
 El cliente debe generar el código primero usando:
+
 ```bash
 curl -X POST http://localhost:3001/api/client/verification-code \
   -H "Authorization: Bearer <token_del_cliente>"
@@ -96,7 +114,9 @@ Seleccione una opción (1-4):
 ### 3. Opciones Disponibles
 
 #### Opción 1: Ver Cuentas
+
 Muestra todas las cuentas del cliente:
+
 ```
 ╔════════════════════════════════════════════════════════════╗
 ║ Cuenta #1
@@ -110,7 +130,9 @@ Muestra todas las cuentas del cliente:
 ```
 
 #### Opción 2: Ver Tarjetas
+
 Muestra tarjetas con números enmascarados:
+
 ```
 ╔════════════════════════════════════════════════════════════╗
 ║ Tarjeta #1
@@ -124,7 +146,9 @@ Muestra tarjetas con números enmascarados:
 ```
 
 #### Opción 3: Consultar Saldo
+
 Muestra lista de cuentas para seleccionar y luego el saldo detallado:
+
 ```
 Cuentas disponibles:
 
@@ -144,6 +168,7 @@ Seleccione cuenta (1-2): 1
 ```
 
 #### Opción 4: Cerrar Sesión
+
 Cierra la sesión del asesor y sale de la terminal.
 
 ---
@@ -163,6 +188,7 @@ WORKER_URL=http://localhost:3002 bun run terminal:asesor
 ### Error: "No se puede conectar al servidor"
 
 **Solución:**
+
 ```bash
 # En otra terminal, iniciar el worker
 cd worker
@@ -174,18 +200,21 @@ bun run dev
 **Causa:** El código tiene 10 minutos de vigencia.
 
 **Solución:**
+
 1. Pedir al cliente que genere un nuevo código
 2. Usar el nuevo código inmediatamente
 
 ### Error: "Últimos dígitos incorrectos"
 
 **Solución:**
+
 - Confirmar con el cliente los últimos 4 dígitos de su cuenta/tarjeta
 - Verificar que estás usando el número correcto
 
 ### Error: "Asesor no encontrado o inactivo"
 
 **Solución:**
+
 ```bash
 # Crear asesor nuevamente
 bun run seed:advisor

@@ -4,6 +4,7 @@ import { useApp } from "@/context/AppContext";
 import AccountCard from "./AccountCard";
 import ConnectionStatus from "./ConnectionStatus";
 import { VerificationModal } from "./VerificationModal";
+import DemoModeToggle from "./DemoModeToggle";
 import { useState } from "react";
 import Link from "next/link";
 import {
@@ -52,6 +53,9 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Demo Mode Toggle */}
+        <DemoModeToggle />
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -31,7 +31,7 @@ export default function TransferPage() {
 
 function TransferContent() {
   const router = useRouter();
-  const { accounts, user, refreshUserData } = useApp();
+  const { accounts, user, refreshUserData, demoMode } = useApp();
   const { showSuccess, showError } = useToast();
   const [fromAccountId, setFromAccountId] = useState("");
   const [toAccountNumber, setToAccountNumber] = useState("");
@@ -73,7 +73,8 @@ function TransferContent() {
       const response = await apiClient.transfer(
         fromAccountId,
         toAccountNumber,
-        parseFloat(amount)
+        parseFloat(amount),
+        demoMode
       );
 
       showSuccess(

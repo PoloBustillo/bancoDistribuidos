@@ -497,11 +497,13 @@ app.post(
       }
 
       // Transferir (ahora cuentaDestinoId es UUID)
+      const enableDemo = req.query.demo === "true";
       const resultado = await bancoService.transferir(
         input.cuentaOrigenId,
         cuentaDestinoId,
         input.monto,
-        req.usuario!.id
+        req.usuario!.id,
+        enableDemo
       );
 
       res.json(resultado);
@@ -519,10 +521,12 @@ app.post(
   async (req: AuthRequest, res: Response) => {
     try {
       const data = depositoRetiroSchema.parse(req.body);
+      const enableDemo = req.query.demo === "true";
       const resultado = await bancoService.depositar(
         data.cuentaId,
         data.monto,
-        req.usuario!.id
+        req.usuario!.id,
+        enableDemo
       );
 
       res.json(resultado);
@@ -540,10 +544,12 @@ app.post(
   async (req: AuthRequest, res: Response) => {
     try {
       const data = depositoRetiroSchema.parse(req.body);
+      const enableDemo = req.query.demo === "true";
       const resultado = await bancoService.retirar(
         data.cuentaId,
         data.monto,
-        req.usuario!.id
+        req.usuario!.id,
+        enableDemo
       );
 
       res.json(resultado);

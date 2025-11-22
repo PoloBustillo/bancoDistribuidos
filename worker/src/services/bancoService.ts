@@ -19,7 +19,8 @@ export class BancoService {
     cuentaOrigenId: string,
     cuentaDestinoId: string, // UUID de la cuenta destino (ya resuelto en el endpoint)
     monto: number,
-    usuarioId: string
+    usuarioId: string,
+    enableDelay: boolean = false // 🎓 Modo demo: activar con ?demo=true
   ) {
     if (monto <= 0) {
       throw new Error("El monto debe ser mayor a 0");
@@ -36,11 +37,13 @@ export class BancoService {
     // - Cómo funcionan las colas de locks
     // - Prevención de condiciones de carrera
     // - Ordenamiento de operaciones concurrentes
+    // Se activa con query param: ?demo=true en el request HTTP
     // ========================================
-    const DEMO_MODE = process.env.ENABLE_OPERATION_DELAY === "true";
-    if (DEMO_MODE) {
+    if (enableDelay) {
       const delayMs = Math.floor(Math.random() * 3000) + 1000; // 1-4 segundos
-      console.log(`⏱️  [DEMO] Simulando latencia de operación: ${delayMs}ms`);
+      console.log(
+        `⏱️  [DEMO] Simulando latencia de transferencia: ${delayMs}ms`
+      );
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
 
@@ -252,14 +255,18 @@ export class BancoService {
    * - Sección crítica para modificación de saldo
    * - Operación atómica (ACID)
    */
-  async depositar(cuentaId: string, monto: number, usuarioId: string) {
+  async depositar(
+    cuentaId: string,
+    monto: number,
+    usuarioId: string,
+    enableDelay: boolean = false
+  ) {
     if (monto <= 0) {
       throw new Error("El monto debe ser mayor a 0");
     }
 
-    // 🎓 Simulación de latencia (modo demostración)
-    const DEMO_MODE = process.env.ENABLE_OPERATION_DELAY === "true";
-    if (DEMO_MODE) {
+    // 🎓 Simulación de latencia (modo demostración - activar con ?demo=true)
+    if (enableDelay) {
       const delayMs = Math.floor(Math.random() * 2000) + 500; // 0.5-2.5 segundos
       console.log(`⏱️  [DEMO] Simulando latencia de depósito: ${delayMs}ms`);
       await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -375,14 +382,18 @@ export class BancoService {
    * - Sección crítica con validación de saldo
    * - Prevención de saldo negativo
    */
-  async retirar(cuentaId: string, monto: number, usuarioId: string) {
+  async retirar(
+    cuentaId: string,
+    monto: number,
+    usuarioId: string,
+    enableDelay: boolean = false
+  ) {
     if (monto <= 0) {
       throw new Error("El monto debe ser mayor a 0");
     }
 
-    // 🎓 Simulación de latencia (modo demostración)
-    const DEMO_MODE = process.env.ENABLE_OPERATION_DELAY === "true";
-    if (DEMO_MODE) {
+    // 🎓 Simulación de latencia (modo demostración - activar con ?demo=true)
+    if (enableDelay) {
       const delayMs = Math.floor(Math.random() * 2000) + 500; // 0.5-2.5 segundos
       console.log(`⏱️  [DEMO] Simulando latencia de retiro: ${delayMs}ms`);
       await new Promise((resolve) => setTimeout(resolve, delayMs));

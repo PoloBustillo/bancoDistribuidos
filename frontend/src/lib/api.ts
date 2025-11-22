@@ -95,23 +95,27 @@ class ApiClient {
   async transfer(
     cuentaOrigenId: string,
     cuentaDestinoId: string,
-    monto: number
+    monto: number,
+    demoMode: boolean = false
   ) {
-    return this.request("/api/banco/transferir", {
+    const queryParam = demoMode ? "?demo=true" : "";
+    return this.request(`/api/banco/transferir${queryParam}`, {
       method: "POST",
       body: JSON.stringify({ cuentaOrigenId, cuentaDestinoId, monto }),
     });
   }
 
-  async deposit(cuentaId: string, monto: number) {
-    return this.request("/api/banco/depositar", {
+  async deposit(cuentaId: string, monto: number, demoMode: boolean = false) {
+    const queryParam = demoMode ? "?demo=true" : "";
+    return this.request(`/api/banco/depositar${queryParam}`, {
       method: "POST",
       body: JSON.stringify({ cuentaId, monto }),
     });
   }
 
-  async withdraw(cuentaId: string, monto: number) {
-    return this.request("/api/banco/retirar", {
+  async withdraw(cuentaId: string, monto: number, demoMode: boolean = false) {
+    const queryParam = demoMode ? "?demo=true" : "";
+    return this.request(`/api/banco/retirar${queryParam}`, {
       method: "POST",
       body: JSON.stringify({ cuentaId, monto }),
     });

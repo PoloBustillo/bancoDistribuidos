@@ -62,6 +62,9 @@ interface AppState {
   // Notificaciones
   notifications: Notification[];
   clearNotifications: () => void;
+  // Demo Mode
+  demoMode: boolean;
+  setDemoMode: (enabled: boolean) => void;
 }
 
 interface Notification {
@@ -209,6 +212,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  // Demo Mode state (persisted in localStorage)
+  const [demoMode, setDemoModeState] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const saved = localStorage.getItem("demoMode");
+    return saved === "true";
+  });
 
   // Socket.IO state
   const [connected, setConnected] = useState(false);
@@ -496,6 +506,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const clearNotifications = useCallback(() => {
     setNotifications([]);
+  }, []);
+
+  // Set demo mode and persist to localStorage
+  const setDemoMode = useCallback((enabled: boolean) => {
+    setDemoModeState(enabled);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("demoMode", enabled.toString());
+    }
+    console.log(`🎓 Modo DEMO ${enabled ? "activado" : "desactivado"}`);
   }, []);
 
   // Restaurar sesión al cargar la página
@@ -903,6 +922,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Notificaciones
         notifications,
         clearNotifications,
+        // Demo Mode
+        demoMode,
+        setDemoMode,
       }}
     >
       {children}

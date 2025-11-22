@@ -89,8 +89,8 @@ export class AdvisorService {
   // ========================================
   async verificarCliente(
     asesorId: string,
-    numeroRecurso: string, // número de cuenta o tarjeta
-    ultimosDigitos: string,
+    numeroRecurso: string, // últimos 4 dígitos de cuenta o tarjeta
+    ultimosDigitos: string, // mismo valor (redundante pero mantiene compatibilidad)
     codigo: string,
     ip?: string,
     userAgent?: string
@@ -104,33 +104,82 @@ export class AdvisorService {
       throw new Error("Asesor no encontrado o inactivo");
     }
 
-    // 2. Buscar el recurso (cuenta o tarjeta) por número
+    // 2. Buscar el recurso (cuenta o tarjeta) por ÚLTIMOS 4 DÍGITOS
     let usuarioId: string | null = null;
     let recursoEncontrado: any = null;
 
-    // Intentar buscar por cuenta
-    const cuenta = await prisma.cuentaBancaria.findFirst({
-      where: { numeroCuenta: numeroRecurso },
-      include: { usuarioCuentas: { include: { usuario: true } } },
-    });
+    // Normalizar: si numeroRecurso es solo 4 dígitos, buscar por terminación
+    // Si es más largo, buscar exacto (compatibilidad con versión anterior)
+    const buscarPorUltimosDigitos = numeroRecurso.length === 4;
 
-    if (cuenta) {
-      recursoEncontrado = cuenta;
-      // Si es cuenta compartida, tomar el primer titular
-      const titular = cuenta.usuarioCuentas.find((uc) => uc.rol === "TITULAR");
-      usuarioId = titular?.usuarioId || cuenta.usuarioCuentas[0]?.usuarioId;
-    }
+    if (buscarPorUltimosDigitos) {
+      // 🎯 BUSCAR POR ÚLTIMOS 4 DÍGITOS (nuevo flujo amigable)
 
-    // Si no se encontró cuenta, intentar con tarjeta
-    if (!usuarioId) {
-      const tarjeta = await prisma.tarjeta.findFirst({
-        where: { numeroTarjeta: numeroRecurso },
-        include: { usuario: true },
+      // Intentar buscar cuenta que termine en estos dígitos
+      const cuentas = await prisma.cuentaBancaria.findMany({
+        where: {
+          numeroCuenta: {
+            endsWith: ultimosDigitos,
+          },
+        },
+        include: { usuarioCuentas: { include: { usuario: true } } },
       });
 
-      if (tarjeta) {
-        recursoEncontrado = tarjeta;
-        usuarioId = tarjeta.usuarioId;
+      if (cuentas.length > 0) {
+        // Si hay múltiples cuentas con los mismos últimos 4 dígitos,
+        // tomar la primera (ambigüedad resuelta por el código de verificación)
+        recursoEncontrado = cuentas[0];
+        const titular = cuentas[0].usuarioCuentas.find(
+          (uc) => uc.rol === "TITULAR"
+        );
+        usuarioId =
+          titular?.usuarioId || cuentas[0].usuarioCuentas[0]?.usuarioId;
+      }
+
+      // Si no se encontró cuenta, intentar con tarjeta
+      if (!usuarioId) {
+        const tarjetas = await prisma.tarjeta.findMany({
+          where: {
+            numeroTarjeta: {
+              endsWith: ultimosDigitos,
+            },
+          },
+          include: { usuario: true },
+        });
+
+        if (tarjetas.length > 0) {
+          recursoEncontrado = tarjetas[0];
+          usuarioId = tarjetas[0].usuarioId;
+        }
+      }
+    } else {
+      // 📋 BUSCAR POR NÚMERO COMPLETO (flujo anterior, compatibilidad)
+
+      // Intentar buscar por cuenta
+      const cuenta = await prisma.cuentaBancaria.findFirst({
+        where: { numeroCuenta: numeroRecurso },
+        include: { usuarioCuentas: { include: { usuario: true } } },
+      });
+
+      if (cuenta) {
+        recursoEncontrado = cuenta;
+        const titular = cuenta.usuarioCuentas.find(
+          (uc) => uc.rol === "TITULAR"
+        );
+        usuarioId = titular?.usuarioId || cuenta.usuarioCuentas[0]?.usuarioId;
+      }
+
+      // Si no se encontró cuenta, intentar con tarjeta
+      if (!usuarioId) {
+        const tarjeta = await prisma.tarjeta.findFirst({
+          where: { numeroTarjeta: numeroRecurso },
+          include: { usuario: true },
+        });
+
+        if (tarjeta) {
+          recursoEncontrado = tarjeta;
+          usuarioId = tarjeta.usuarioId;
+        }
       }
     }
 
@@ -141,14 +190,16 @@ export class AdvisorService {
         null,
         "VERIFY_CLIENT_FAILED",
         null,
-        { razon: "Recurso no encontrado", numeroRecurso },
+        { razon: "Recurso no encontrado", ultimosDigitos },
         ip,
         userAgent
       );
-      throw new Error("Cuenta o tarjeta no encontrada");
+      throw new Error(
+        "No se encontró cuenta o tarjeta con esos últimos 4 dígitos"
+      );
     }
 
-    // 3. Validar últimos dígitos
+    // 3. Validar últimos dígitos (doble verificación de seguridad)
     const numeroCompleto =
       "numeroCuenta" in recursoEncontrado
         ? recursoEncontrado.numeroCuenta

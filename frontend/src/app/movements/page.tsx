@@ -30,7 +30,7 @@ export default function MovementsPage() {
 
 function MovementsContent() {
   const router = useRouter();
-  const { accounts, refreshUserData, user } = useApp();
+  const { accounts, refreshUserData, user, demoMode } = useApp();
   const { showSuccess, showError } = useToast();
   const [operation, setOperation] = useState<"deposit" | "withdraw">("deposit");
   const [accountId, setAccountId] = useState("");
@@ -79,8 +79,8 @@ function MovementsContent() {
       const monto = parseFloat(amount);
       const response =
         operation === "deposit"
-          ? await apiClient.deposit(accountId, monto)
-          : await apiClient.withdraw(accountId, monto);
+          ? await apiClient.deposit(accountId, monto, demoMode)
+          : await apiClient.withdraw(accountId, monto, demoMode);
 
       const operationType = operation === "deposit" ? "Depósito" : "Retiro";
       showSuccess(

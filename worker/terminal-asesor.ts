@@ -34,10 +34,12 @@ function clearScreen() {
 }
 
 function showHeader() {
-  console.log(
-    "\n╔════════════════════════════════════════════════════════════╗"
-  );
-  console.log("║         🏦  TERMINAL DE ASESOR BANCARIO  🏦               ║");
+  console.log("\n");
+  console.log("╔════════════════════════════════════════════════════════════╗");
+  console.log("║                                                            ║");
+  console.log("║         🏦  TERMINAL DE ASESOR BANCARIO  🏦                ║");
+  console.log("║              Sistema Distribuido v2.0                      ║");
+  console.log("║                                                            ║");
   console.log(
     "╚════════════════════════════════════════════════════════════╝\n"
   );
@@ -173,42 +175,93 @@ async function loginScreen() {
   clearScreen();
   showHeader();
   console.log("🔐 VERIFICACIÓN DE CLIENTE\n");
-  console.log("Por favor, solicite al cliente:\n");
-  console.log("  1. Número de cuenta o tarjeta");
-  console.log("  2. Últimos 4 dígitos");
-  console.log("  3. Código de verificación (6 dígitos)\n");
+  console.log("═══════════════════════════════════════════════════════════\n");
+  console.log("📋 PROCESO DE VERIFICACIÓN:\n");
+  console.log("  1. El cliente debe generar un código en su aplicación");
+  console.log("  2. Solicite al cliente los últimos 4 dígitos de su:");
+  console.log("     • Número de cuenta, O");
+  console.log("     • Número de tarjeta");
+  console.log("  3. Solicite el código de verificación (6 dígitos)\n");
+  console.log("═══════════════════════════════════════════════════════════\n");
 
-  const advisorId = await prompt("ID de Asesor: ");
+  // Paso 1: ID del asesor
+  const advisorId = await prompt("👤 ID de Asesor: ");
   if (!advisorId) {
     showError("ID de asesor requerido");
     await prompt("Presione Enter para continuar...");
     return false;
   }
 
-  const numeroRecurso = await prompt("Número de cuenta/tarjeta: ");
-  if (!numeroRecurso) {
-    showError("Número de recurso requerido");
+  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+  // Paso 2: Tipo de recurso
+  console.log("🏦 ¿Qué tipo de recurso usará para la verificación?\n");
+  console.log("  1. Cuenta bancaria");
+  console.log("  2. Tarjeta de débito/crédito\n");
+
+  const tipoRecurso = await prompt("Seleccione tipo (1-2): ");
+  if (!["1", "2"].includes(tipoRecurso)) {
+    showError("Tipo inválido. Debe seleccionar 1 o 2");
     await prompt("Presione Enter para continuar...");
     return false;
   }
 
-  const ultimosDigitos = await prompt("Últimos 4 dígitos: ");
+  const esCuenta = tipoRecurso === "1";
+  const nombreRecurso = esCuenta ? "cuenta" : "tarjeta";
+
+  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+  // Paso 3: Últimos 4 dígitos
+  console.log(
+    `🔢 Solicite al cliente los últimos 4 dígitos de su ${nombreRecurso}\n`
+  );
+  console.log(`   Ejemplo de ${nombreRecurso}:`);
+  if (esCuenta) {
+    console.log("   Cuenta: 1234-5678-9012-3456");
+    console.log("   Últimos 4 dígitos: 3456\n");
+  } else {
+    console.log("   Tarjeta: 4532-1234-5678-9010");
+    console.log("   Últimos 4 dígitos: 9010\n");
+  }
+
+  let ultimosDigitos = await prompt(
+    `💳 Últimos 4 dígitos de ${nombreRecurso}: `
+  );
+  ultimosDigitos = ultimosDigitos.replace(/\D/g, ""); // Eliminar no-dígitos
+
   if (ultimosDigitos.length !== 4) {
     showError("Debe ingresar exactamente 4 dígitos");
     await prompt("Presione Enter para continuar...");
     return false;
   }
 
-  const codigo = await prompt("Código de verificación (6 dígitos): ");
+  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+  // Paso 4: Código de verificación
+  console.log("🔐 Solicite al cliente el código de verificación\n");
+  console.log("   • El código tiene 6 dígitos");
+  console.log("   • Es válido por 10 minutos");
+  console.log("   • Se genera en su aplicación móvil/web\n");
+
+  let codigo = await prompt("🔑 Código de verificación (6 dígitos): ");
+  codigo = codigo.replace(/\D/g, ""); // Eliminar no-dígitos
+
   if (codigo.length !== 6) {
     showError("Debe ingresar exactamente 6 dígitos");
     await prompt("Presione Enter para continuar...");
     return false;
   }
 
-  console.log("\n⏳ Verificando cliente...\n");
+  console.log("\n⏳ Verificando cliente...");
+  console.log(`   • Tipo: ${nombreRecurso.toUpperCase()}`);
+  console.log(`   • Últimos 4 dígitos: ****${ultimosDigitos}`);
+  console.log(`   • Código: ******\n`);
 
   try {
+    // Construir "numeroRecurso" usando últimos 4 dígitos como identificador
+    // El backend buscará coincidencias en cuentas/tarjetas que terminen en estos dígitos
+    const numeroRecurso = ultimosDigitos;
+
     const result = await verifyClient(
       advisorId,
       numeroRecurso,
@@ -219,16 +272,35 @@ async function loginScreen() {
     advisorToken = result.token;
     currentClient = result.usuario;
 
-    showSuccess("Cliente verificado exitosamente");
-    console.log("📋 Información del Cliente:");
-    console.log(`   Nombre: ${currentClient.nombre}`);
-    console.log(`   Email: ${currentClient.email}`);
-    console.log(`   ID: ${currentClient.id}\n`);
+    console.log("\n✨ ¡VERIFICACIÓN EXITOSA! ✨\n");
+    console.log(
+      "╔════════════════════════════════════════════════════════════╗"
+    );
+    console.log(
+      "║              📋 INFORMACIÓN DEL CLIENTE                    ║"
+    );
+    console.log(
+      "╠════════════════════════════════════════════════════════════╣"
+    );
+    console.log(`║ 👤 Nombre: ${currentClient.nombre.padEnd(48, " ")}║`);
+    console.log(`║ 📧 Email:  ${currentClient.email.padEnd(48, " ")}║`);
+    console.log(
+      `║ 🆔 ID:     ${currentClient.id.substring(0, 48).padEnd(48, " ")}║`
+    );
+    console.log(
+      "╚════════════════════════════════════════════════════════════╝\n"
+    );
 
-    await prompt("Presione Enter para continuar...");
+    await prompt("✅ Presione Enter para acceder al menú principal...");
     return true;
   } catch (error: any) {
+    console.log("\n");
     showError(error.message);
+    console.log("\n💡 POSIBLES CAUSAS:\n");
+    console.log("  • Los últimos 4 dígitos no coinciden");
+    console.log("  • El código de verificación expiró (10 minutos)");
+    console.log("  • El código ya fue usado");
+    console.log("  • El cliente no generó el código en su app\n");
     await prompt("Presione Enter para reintentar...");
     return false;
   }
@@ -238,18 +310,30 @@ async function mainMenu() {
   while (true) {
     clearScreen();
     showHeader();
-    console.log(`👤 Cliente: ${currentClient.nombre}`);
-    console.log(`📧 Email: ${currentClient.email}\n`);
+    console.log(
+      "╔════════════════════════════════════════════════════════════╗"
+    );
+    console.log(
+      "║                    SESIÓN ACTIVA                           ║"
+    );
+    console.log(
+      "╠════════════════════════════════════════════════════════════╣"
+    );
+    console.log(`║ 👤 Cliente: ${currentClient.nombre.padEnd(47, " ")}║`);
+    console.log(`║ 📧 Email:   ${currentClient.email.padEnd(47, " ")}║`);
+    console.log(
+      "╚════════════════════════════════════════════════════════════╝\n"
+    );
+    console.log("━━━━━━━━━━━━━━━━━━ MENÚ PRINCIPAL ━━━━━━━━━━━━━━━━━━━━━━━\n");
+    console.log("  1️⃣  Ver todas las cuentas del cliente");
+    console.log("  2️⃣  Ver todas las tarjetas del cliente");
+    console.log("  3️⃣  Consultar saldo de cuenta específica");
+    console.log("  4️⃣  Cerrar sesión y salir\n");
     console.log(
       "═══════════════════════════════════════════════════════════\n"
     );
-    console.log("MENÚ PRINCIPAL:\n");
-    console.log("  1. Ver cuentas del cliente");
-    console.log("  2. Ver tarjetas del cliente");
-    console.log("  3. Consultar saldo de cuenta");
-    console.log("  4. Cerrar sesión y salir\n");
 
-    const option = await prompt("Seleccione una opción (1-4): ");
+    const option = await prompt("👉 Seleccione una opción (1-4): ");
 
     switch (option) {
       case "1":
@@ -265,7 +349,7 @@ async function mainMenu() {
         await logoutAndExit();
         return;
       default:
-        showError("Opción inválida");
+        showError("Opción inválida. Debe seleccionar un número del 1 al 4");
         await prompt("Presione Enter para continuar...");
     }
   }
@@ -274,133 +358,228 @@ async function mainMenu() {
 async function showAccounts() {
   clearScreen();
   showHeader();
-  console.log("💰 CUENTAS DEL CLIENTE\n");
-  console.log("⏳ Cargando...\n");
+  console.log("━━━━━━━━━━━━━━━━━━ 💰 CUENTAS DEL CLIENTE ━━━━━━━━━━━━━━━\n");
+  console.log("⏳ Cargando información...\n");
 
   try {
     const cuentas = await getClientAccounts(currentClient.id);
 
     if (cuentas.length === 0) {
-      console.log("No se encontraron cuentas.\n");
-    } else {
       console.log(
         "╔════════════════════════════════════════════════════════════╗"
       );
-      cuentas.forEach((cuenta: any, index: number) => {
-        console.log(`║ Cuenta #${index + 1}`);
-        console.log(`║ Número: ${cuenta.numeroCuenta}`);
-        console.log(`║ Nombre: ${cuenta.nombre}`);
-        console.log(`║ Tipo: ${cuenta.tipoCuenta}`);
-        console.log(`║ Saldo: $${cuenta.saldo.toFixed(2)}`);
-        console.log(`║ Estado: ${cuenta.estado}`);
-        console.log(`║ Rol: ${cuenta.rol}`);
-        console.log(
-          "╠════════════════════════════════════════════════════════════╣"
-        );
-      });
+      console.log(
+        "║                                                            ║"
+      );
+      console.log(
+        "║        ℹ️  El cliente no tiene cuentas registradas         ║"
+      );
+      console.log(
+        "║                                                            ║"
+      );
       console.log(
         "╚════════════════════════════════════════════════════════════╝\n"
       );
+    } else {
+      cuentas.forEach((cuenta: any, index: number) => {
+        const saldoColor = cuenta.saldo >= 0 ? "💰" : "⚠️";
+        console.log(
+          "╔════════════════════════════════════════════════════════════╗"
+        );
+        console.log(`║  CUENTA #${(index + 1).toString().padEnd(52, " ")}║`);
+        console.log(
+          "╠════════════════════════════════════════════════════════════╣"
+        );
+        console.log(`║ 🔢 Número:  ${cuenta.numeroCuenta.padEnd(46, " ")}║`);
+        console.log(`║ 📝 Nombre:  ${cuenta.nombre.padEnd(46, " ")}║`);
+        console.log(`║ 🏦 Tipo:    ${cuenta.tipoCuenta.padEnd(46, " ")}║`);
+        console.log(
+          `║ ${saldoColor} Saldo:   $${cuenta.saldo
+            .toFixed(2)
+            .padEnd(45, " ")}║`
+        );
+        console.log(`║ 📊 Estado:  ${cuenta.estado.padEnd(46, " ")}║`);
+        console.log(`║ 👤 Rol:     ${cuenta.rol.padEnd(46, " ")}║`);
+        console.log(
+          "╚════════════════════════════════════════════════════════════╝"
+        );
+        if (index < cuentas.length - 1) console.log("");
+      });
+      console.log("\n");
+      console.log(`✅ Total de cuentas: ${cuentas.length}`);
     }
   } catch (error: any) {
     showError(error.message);
   }
 
-  await prompt("Presione Enter para volver al menú...");
+  console.log("\n");
+  await prompt("⏎ Presione Enter para volver al menú...");
 }
 
 async function showCards() {
   clearScreen();
   showHeader();
-  console.log("💳 TARJETAS DEL CLIENTE\n");
-  console.log("⏳ Cargando...\n");
+  console.log("━━━━━━━━━━━━━━━━━ 💳 TARJETAS DEL CLIENTE ━━━━━━━━━━━━━━━\n");
+  console.log("⏳ Cargando información...\n");
 
   try {
     const tarjetas = await getClientCards(currentClient.id);
 
     if (tarjetas.length === 0) {
-      console.log("No se encontraron tarjetas.\n");
-    } else {
       console.log(
         "╔════════════════════════════════════════════════════════════╗"
       );
-      tarjetas.forEach((tarjeta: any, index: number) => {
-        console.log(`║ Tarjeta #${index + 1}`);
-        console.log(`║ Número: ${tarjeta.numeroTarjeta}`);
-        console.log(`║ Tipo: ${tarjeta.tipoTarjeta}`);
-        console.log(`║ Estado: ${tarjeta.estado}`);
-        console.log(
-          `║ Límite Diario: $${tarjeta.limiteDiario?.toFixed(2) || "N/A"}`
-        );
-        console.log(
-          `║ Expira: ${new Date(tarjeta.fechaExpiracion).toLocaleDateString()}`
-        );
-        console.log(`║ Cuenta: ${tarjeta.cuenta.numeroCuenta}`);
-        console.log(
-          "╠════════════════════════════════════════════════════════════╣"
-        );
-      });
+      console.log(
+        "║                                                            ║"
+      );
+      console.log(
+        "║       ℹ️  El cliente no tiene tarjetas registradas         ║"
+      );
+      console.log(
+        "║                                                            ║"
+      );
       console.log(
         "╚════════════════════════════════════════════════════════════╝\n"
       );
+    } else {
+      tarjetas.forEach((tarjeta: any, index: number) => {
+        const estadoIcon =
+          tarjeta.estado === "ACTIVA"
+            ? "✅"
+            : tarjeta.estado === "BLOQUEADA"
+            ? "🔒"
+            : "❌";
+        const tipoIcon = tarjeta.tipoTarjeta === "DEBITO" ? "💳" : "💎";
+
+        console.log(
+          "╔════════════════════════════════════════════════════════════╗"
+        );
+        console.log(
+          `║  ${tipoIcon} TARJETA #${(index + 1).toString().padEnd(49, " ")}║`
+        );
+        console.log(
+          "╠════════════════════════════════════════════════════════════╣"
+        );
+        console.log(`║ 🔢 Número:  ${tarjeta.numeroTarjeta.padEnd(46, " ")}║`);
+        console.log(`║ 🏷️  Tipo:    ${tarjeta.tipoTarjeta.padEnd(46, " ")}║`);
+        console.log(
+          `║ ${estadoIcon} Estado:  ${tarjeta.estado.padEnd(46, " ")}║`
+        );
+
+        const limite = tarjeta.limiteDiario
+          ? `$${tarjeta.limiteDiario.toFixed(2)}`
+          : "Sin límite";
+        console.log(`║ 💵 Límite:  ${limite.padEnd(46, " ")}║`);
+
+        const expira = new Date(tarjeta.fechaExpiracion).toLocaleDateString(
+          "es-MX"
+        );
+        console.log(`║ 📅 Expira:  ${expira.padEnd(46, " ")}║`);
+        console.log(
+          `║ 🏦 Cuenta:  ${tarjeta.cuenta.numeroCuenta.padEnd(46, " ")}║`
+        );
+        console.log(
+          "╚════════════════════════════════════════════════════════════╝"
+        );
+        if (index < tarjetas.length - 1) console.log("");
+      });
+      console.log("\n");
+      console.log(`✅ Total de tarjetas: ${tarjetas.length}`);
     }
   } catch (error: any) {
     showError(error.message);
   }
 
-  await prompt("Presione Enter para volver al menú...");
+  console.log("\n");
+  await prompt("⏎ Presione Enter para volver al menú...");
 }
 
 async function showBalance() {
   clearScreen();
   showHeader();
-  console.log("💵 CONSULTAR SALDO\n");
+  console.log("━━━━━━━━━━━━━━━━━ 💵 CONSULTAR SALDO ━━━━━━━━━━━━━━━━━━━\n");
 
   try {
     // Primero obtener las cuentas para mostrarlas
     const cuentas = await getClientAccounts(currentClient.id);
 
     if (cuentas.length === 0) {
-      showError("El cliente no tiene cuentas");
-      await prompt("Presione Enter para volver al menú...");
+      console.log(
+        "╔════════════════════════════════════════════════════════════╗"
+      );
+      console.log(
+        "║                                                            ║"
+      );
+      console.log(
+        "║         ⚠️  El cliente no tiene cuentas disponibles        ║"
+      );
+      console.log(
+        "║                                                            ║"
+      );
+      console.log(
+        "╚════════════════════════════════════════════════════════════╝\n"
+      );
+      await prompt("⏎ Presione Enter para volver al menú...");
       return;
     }
 
-    console.log("Cuentas disponibles:\n");
+    console.log("📋 CUENTAS DISPONIBLES:\n");
     cuentas.forEach((cuenta: any, index: number) => {
-      console.log(`  ${index + 1}. ${cuenta.numeroCuenta} - ${cuenta.nombre}`);
+      const numero = cuenta.numeroCuenta.slice(-4);
+      console.log(`  ${index + 1}️⃣  ****${numero} - ${cuenta.nombre}`);
+      console.log(
+        `     ${cuenta.tipoCuenta} | Saldo: $${cuenta.saldo.toFixed(2)}`
+      );
+      console.log("");
     });
 
     const selection = await prompt(
-      `\nSeleccione cuenta (1-${cuentas.length}): `
+      `👉 Seleccione cuenta (1-${cuentas.length}): `
     );
     const selectedIndex = parseInt(selection) - 1;
 
-    if (selectedIndex < 0 || selectedIndex >= cuentas.length) {
+    if (
+      isNaN(selectedIndex) ||
+      selectedIndex < 0 ||
+      selectedIndex >= cuentas.length
+    ) {
       showError("Selección inválida");
-      await prompt("Presione Enter para volver al menú...");
+      await prompt("⏎ Presione Enter para volver al menú...");
       return;
     }
 
     const cuentaSeleccionada = cuentas[selectedIndex];
-    console.log("\n⏳ Consultando saldo...\n");
+    console.log("\n⏳ Consultando saldo actualizado...\n");
 
     const saldo = await getAccountBalance(
       currentClient.id,
       cuentaSeleccionada.cuentaId
     );
 
+    const saldoIcon =
+      saldo.saldo >= 1000 ? "💰" : saldo.saldo >= 0 ? "💵" : "⚠️";
+
     console.log(
       "╔════════════════════════════════════════════════════════════╗"
     );
-    console.log(`║ Cuenta: ${saldo.numeroCuenta}`);
-    console.log(`║ Nombre: ${saldo.nombre}`);
-    console.log(`║ Tipo: ${saldo.tipoCuenta}`);
-    console.log(`║ Estado: ${saldo.estado}`);
+    console.log(
+      "║                    DETALLE DE CUENTA                       ║"
+    );
     console.log(
       "╠════════════════════════════════════════════════════════════╣"
     );
-    console.log(`║ 💰 SALDO: $${saldo.saldo.toFixed(2)}`);
+    console.log(`║ 🔢 Cuenta:  ${saldo.numeroCuenta.padEnd(46, " ")}║`);
+    console.log(`║ 📝 Nombre:  ${saldo.nombre.padEnd(46, " ")}║`);
+    console.log(`║ 🏦 Tipo:    ${saldo.tipoCuenta.padEnd(46, " ")}║`);
+    console.log(`║ 📊 Estado:  ${saldo.estado.padEnd(46, " ")}║`);
+    console.log(
+      "╠════════════════════════════════════════════════════════════╣"
+    );
+    console.log(
+      `║ ${saldoIcon}  SALDO ACTUAL: $${saldo.saldo
+        .toFixed(2)
+        .padEnd(40, " ")}║`
+    );
     console.log(
       "╚════════════════════════════════════════════════════════════╝\n"
     );
@@ -408,20 +587,53 @@ async function showBalance() {
     showError(error.message);
   }
 
-  await prompt("Presione Enter para volver al menú...");
+  console.log("");
+  await prompt("⏎ Presione Enter para volver al menú...");
 }
 
 async function logoutAndExit() {
-  console.log("\n⏳ Cerrando sesión...\n");
+  clearScreen();
+  showHeader();
+  console.log("━━━━━━━━━━━━━━━━━━ 🔐 CERRANDO SESIÓN ━━━━━━━━━━━━━━━━━\n");
+  console.log("⏳ Finalizando sesión de asesor...\n");
 
   try {
     await logout();
-    showSuccess("Sesión cerrada exitosamente");
+    console.log(
+      "╔════════════════════════════════════════════════════════════╗"
+    );
+    console.log(
+      "║                                                            ║"
+    );
+    console.log(
+      "║              ✅ Sesión cerrada exitosamente                ║"
+    );
+    console.log(
+      "║                                                            ║"
+    );
+    console.log(
+      "╚════════════════════════════════════════════════════════════╝\n"
+    );
   } catch (error: any) {
-    console.log("⚠️  Error al cerrar sesión, pero continuando...");
+    console.log(
+      "╔════════════════════════════════════════════════════════════╗"
+    );
+    console.log(
+      "║                                                            ║"
+    );
+    console.log(
+      "║          ⚠️  Sesión cerrada localmente                     ║"
+    );
+    console.log(
+      "║                                                            ║"
+    );
+    console.log(
+      "╚════════════════════════════════════════════════════════════╝\n"
+    );
   }
 
-  console.log("👋 ¡Hasta pronto!\n");
+  console.log("👋 ¡Gracias por usar el Terminal de Asesor Bancario!");
+  console.log("   Vuelva pronto.\n");
   rl.close();
   process.exit(0);
 }
@@ -431,8 +643,12 @@ async function logoutAndExit() {
 // ========================================
 
 async function main() {
-  console.log("\n🚀 Iniciando Terminal de Asesor Bancario...\n");
-  console.log(`📡 Conectando a: ${WORKER_URL}\n`);
+  clearScreen();
+  showHeader();
+  console.log("━━━━━━━━━━━━━━━━━━━━ INICIALIZANDO ━━━━━━━━━━━━━━━━━━━━\n");
+  console.log("🚀 Iniciando Terminal de Asesor Bancario...");
+  console.log(`📡 Servidor: ${WORKER_URL}\n`);
+  console.log("⏳ Verificando conectividad...\n");
 
   // Intentar verificar que el servidor esté disponible
   try {
@@ -440,26 +656,96 @@ async function main() {
     if (!healthResponse.ok) {
       throw new Error("Servidor no disponible");
     }
-    console.log("✅ Conexión establecida\n");
-  } catch (error) {
-    console.log("❌ No se puede conectar al servidor");
+    const health = await healthResponse.json();
+
     console.log(
-      `   Asegúrese de que el worker esté corriendo en ${WORKER_URL}`
+      "╔════════════════════════════════════════════════════════════╗"
     );
-    console.log("   Puede iniciar el worker con: cd worker && bun run dev\n");
+    console.log(
+      "║                                                            ║"
+    );
+    console.log(
+      "║              ✅ Conexión establecida con éxito             ║"
+    );
+    console.log(
+      "║                                                            ║"
+    );
+    console.log(
+      "╠════════════════════════════════════════════════════════════╣"
+    );
+    console.log(`║ Worker ID: ${health.workerId?.padEnd(46, " ")}║`);
+    console.log(`║ Estado:    ${health.status?.padEnd(46, " ")}║`);
+    console.log(
+      "╚════════════════════════════════════════════════════════════╝\n"
+    );
+  } catch (error) {
+    console.log(
+      "╔════════════════════════════════════════════════════════════╗"
+    );
+    console.log(
+      "║                                                            ║"
+    );
+    console.log(
+      "║           ❌ ERROR: No se puede conectar                   ║"
+    );
+    console.log(
+      "║                                                            ║"
+    );
+    console.log(
+      "╠════════════════════════════════════════════════════════════╣"
+    );
+    console.log(`║ Servidor: ${WORKER_URL.padEnd(47, " ")}║`);
+    console.log(
+      "║                                                            ║"
+    );
+    console.log(
+      "║ 💡 Soluciones:                                             ║"
+    );
+    console.log(
+      "║   • Verifique que el worker esté ejecutándose             ║"
+    );
+    console.log(
+      "║   • Inicie con: cd worker && bun run dev                  ║"
+    );
+    console.log(
+      "║   • Verifique la variable WORKER_URL                      ║"
+    );
+    console.log(
+      "║                                                            ║"
+    );
+    console.log(
+      "╚════════════════════════════════════════════════════════════╝\n"
+    );
     rl.close();
     process.exit(1);
   }
 
-  await prompt("Presione Enter para continuar...");
+  await prompt("⏎ Presione Enter para continuar...");
 
   // Loop de login
   while (!advisorToken) {
     const success = await loginScreen();
     if (!success) {
-      const retry = await prompt("¿Desea reintentar? (s/n): ");
+      console.log("\n");
+      const retry = await prompt(
+        "❓ ¿Desea reintentar la verificación? (s/n): "
+      );
       if (retry.toLowerCase() !== "s") {
-        console.log("\n👋 ¡Hasta pronto!\n");
+        console.log(
+          "\n╔════════════════════════════════════════════════════════════╗"
+        );
+        console.log(
+          "║                                                            ║"
+        );
+        console.log(
+          "║            👋 Saliendo del sistema...                      ║"
+        );
+        console.log(
+          "║                                                            ║"
+        );
+        console.log(
+          "╚════════════════════════════════════════════════════════════╝\n"
+        );
         rl.close();
         process.exit(0);
       }
@@ -472,11 +758,25 @@ async function main() {
 
 // Manejar Ctrl+C
 process.on("SIGINT", async () => {
-  console.log("\n\n⚠️  Interrupción detectada...");
+  console.log("\n\n");
+  console.log("╔════════════════════════════════════════════════════════════╗");
+  console.log("║                                                            ║");
+  console.log("║         ⚠️  Interrupción de teclado detectada (Ctrl+C)    ║");
+  console.log("║                                                            ║");
+  console.log(
+    "╚════════════════════════════════════════════════════════════╝\n"
+  );
+
   if (advisorToken) {
-    console.log("⏳ Cerrando sesión...");
-    await logout();
+    console.log("⏳ Cerrando sesión activa...");
+    try {
+      await logout();
+      console.log("✅ Sesión cerrada\n");
+    } catch {
+      console.log("⚠️  Sesión cerrada localmente\n");
+    }
   }
+
   console.log("👋 ¡Hasta pronto!\n");
   rl.close();
   process.exit(0);
