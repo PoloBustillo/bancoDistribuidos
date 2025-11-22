@@ -220,7 +220,7 @@ jobs:
             done
 
             # Verificar RabbitMQ
-            if docker compose exec rabbitmq rabbitmq-diagnostics ping > /dev/null 2>&1; then
+            if docker compose exec -T rabbitmq rabbitmq-diagnostics ping > /dev/null 2>&1; then
               echo "✅ RabbitMQ está saludable (puerto 5672)"
             else
               echo "⚠️  RabbitMQ no responde o no está iniciado"

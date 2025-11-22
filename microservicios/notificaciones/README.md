@@ -26,6 +26,7 @@ docker-compose up --build
 ```
 
 Esto iniciará:
+
 - RabbitMQ en puerto 5672 (AMQP) y 15672 (UI de gestión)
 - Servicio de notificaciones en puertos 4001 (HTTP) y 50051 (gRPC)
 
@@ -119,6 +120,7 @@ Servicio: `NotificacionesService`
 Método: `EnviarNotificacion`
 
 Request:
+
 ```protobuf
 {
   "to": "usuario@ejemplo.com",
@@ -128,6 +130,7 @@ Request:
 ```
 
 Response:
+
 ```protobuf
 {
   "success": true,
@@ -189,6 +192,7 @@ microservicios/notificaciones/
 ### Error: ECONNREFUSED al conectar a RabbitMQ
 
 Asegúrate de que RabbitMQ esté ejecutándose:
+
 ```bash
 docker-compose up rabbitmq
 ```
