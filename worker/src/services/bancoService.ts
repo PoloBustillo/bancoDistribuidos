@@ -26,6 +26,25 @@ export class BancoService {
     }
 
     // ========================================
+    // 🎓 SIMULACIÓN DE LATENCIA (Para demostración)
+    // ========================================
+    // En sistemas reales, las operaciones tienen latencia natural por:
+    // - Consultas a base de datos
+    // - Validaciones complejas
+    // - Llamadas a servicios externos
+    // Este delay artificial ayuda a visualizar:
+    // - Cómo funcionan las colas de locks
+    // - Prevención de condiciones de carrera
+    // - Ordenamiento de operaciones concurrentes
+    // ========================================
+    const DEMO_MODE = process.env.ENABLE_OPERATION_DELAY === "true";
+    if (DEMO_MODE) {
+      const delayMs = Math.floor(Math.random() * 3000) + 1000; // 1-4 segundos
+      console.log(`⏱️  [DEMO] Simulando latencia de operación: ${delayMs}ms`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
+    // ========================================
     // 🎓 PREVENCIÓN DE DEADLOCKS
     // ========================================
     // Si Worker 1 transfiere A→B y Worker 2 transfiere B→A simultáneamente,
@@ -238,6 +257,14 @@ export class BancoService {
       throw new Error("El monto debe ser mayor a 0");
     }
 
+    // 🎓 Simulación de latencia (modo demostración)
+    const DEMO_MODE = process.env.ENABLE_OPERATION_DELAY === "true";
+    if (DEMO_MODE) {
+      const delayMs = Math.floor(Math.random() * 2000) + 500; // 0.5-2.5 segundos
+      console.log(`⏱️  [DEMO] Simulando latencia de depósito: ${delayMs}ms`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
     let lockId: string | null = null;
 
     try {
@@ -351,6 +378,14 @@ export class BancoService {
   async retirar(cuentaId: string, monto: number, usuarioId: string) {
     if (monto <= 0) {
       throw new Error("El monto debe ser mayor a 0");
+    }
+
+    // 🎓 Simulación de latencia (modo demostración)
+    const DEMO_MODE = process.env.ENABLE_OPERATION_DELAY === "true";
+    if (DEMO_MODE) {
+      const delayMs = Math.floor(Math.random() * 2000) + 500; // 0.5-2.5 segundos
+      console.log(`⏱️  [DEMO] Simulando latencia de retiro: ${delayMs}ms`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
 
     let lockId: string | null = null;

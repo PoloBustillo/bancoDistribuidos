@@ -143,7 +143,8 @@ export function isValidAccountNumber(accountNumber: string): boolean {
  * Valida si un string es un UUID válido
  */
 export function isValidUUID(uuid: string): boolean {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(uuid);
 }
 
@@ -154,18 +155,20 @@ export function isValidUUID(uuid: string): boolean {
 export function formatAccountNumber(accountNumber: string): string {
   // Remover caracteres no numéricos
   const cleaned = accountNumber.replace(/\D/g, "");
-  
+
   // Si tiene más de 4 dígitos, agregar guiones
   if (cleaned.length <= 4) return cleaned;
   if (cleaned.length <= 8) return `${cleaned.slice(0, 4)}-${cleaned.slice(4)}`;
-  
+
   return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}-${cleaned.slice(8)}`;
 }
 
 /**
  * Obtiene el mensaje de error para número de cuenta
  */
-export function getAccountNumberErrorMessage(accountNumber: string): string | null {
+export function getAccountNumberErrorMessage(
+  accountNumber: string
+): string | null {
   if (!accountNumber || !accountNumber.trim()) {
     return "El número de cuenta es requerido";
   }

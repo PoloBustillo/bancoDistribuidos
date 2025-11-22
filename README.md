@@ -36,6 +36,7 @@ docker compose -f docker-compose.full.yml logs -f
 ```
 
 ✅ **URLs de acceso:**
+
 - Coordinador: `http://localhost:4000`
 - Worker 1: `http://localhost:3001`
 - Worker 2: `http://localhost:3002`
@@ -83,6 +84,7 @@ docker compose logs -f worker-1
 Ideal para **desarrollo activo** con hot-reload y debugging.
 
 #### Prerequisitos
+
 - [Bun](https://bun.sh) v1.0+ instalado
 - PostgreSQL corriendo (local o remoto)
 - Node.js v18+ (opcional, Bun es suficiente)
@@ -130,6 +132,7 @@ bun run dev  # Puerto 3000
 ```
 
 **🔥 Comando rápido para iniciar todo a la vez:**
+
 ```bash
 # Desde la raíz del proyecto
 bun run dev:backend  # Inicia coordinador + 1 worker
@@ -1015,6 +1018,7 @@ docker exec banco-postgres pg_isready -U banco_user
 Si ninguna solución funciona:
 
 1. **Crea un issue** en GitHub con:
+
    - Comando que ejecutaste
    - Error completo (logs)
    - Sistema operativo

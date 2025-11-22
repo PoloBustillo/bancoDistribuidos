@@ -194,7 +194,8 @@ function TransferContent() {
                       const val = e.target.value;
                       if (val && !isValidAccountNumber(val)) {
                         setAccountNumberError(
-                          getAccountNumberErrorMessage(val) || "Número de cuenta inválido"
+                          getAccountNumberErrorMessage(val) ||
+                            "Número de cuenta inválido"
                         );
                       }
                     }}
@@ -202,27 +203,34 @@ function TransferContent() {
                     className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 bg-white shadow-sm transition-colors placeholder:text-gray-400 text-gray-900 ${
                       accountNumberError
                         ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                        : toAccountNumber && isValidAccountNumber(toAccountNumber)
+                        : toAccountNumber &&
+                          isValidAccountNumber(toAccountNumber)
                         ? "border-green-500 focus:border-green-500 focus:ring-green-500"
                         : "border-gray-300 focus:border-blue-500 focus:ring-blue-500 hover:border-gray-400"
                     }`}
                     required
                   />
-                  {toAccountNumber && isValidAccountNumber(toAccountNumber) && !accountNumberError && (
-                    <CheckCircleIcon className="absolute right-3 top-3 w-6 h-6 text-green-500" />
-                  )}
+                  {toAccountNumber &&
+                    isValidAccountNumber(toAccountNumber) &&
+                    !accountNumberError && (
+                      <CheckCircleIcon className="absolute right-3 top-3 w-6 h-6 text-green-500" />
+                    )}
                 </div>
                 {accountNumberError && (
-                  <p className="mt-2 text-sm text-red-600">{accountNumberError}</p>
+                  <p className="mt-2 text-sm text-red-600">
+                    {accountNumberError}
+                  </p>
                 )}
                 {!accountNumberError && toAccountNumber && (
                   <p className="mt-2 text-xs text-gray-500">
-                    ✓ Número de cuenta válido: {formatAccountNumber(toAccountNumber)}
+                    ✓ Número de cuenta válido:{" "}
+                    {formatAccountNumber(toAccountNumber)}
                   </p>
                 )}
                 {!toAccountNumber && (
                   <p className="mt-2 text-xs text-gray-500">
-                    Ingresa el número de cuenta del destinatario (puede incluir guiones)
+                    Ingresa el número de cuenta del destinatario (puede incluir
+                    guiones)
                   </p>
                 )}
               </div>
@@ -311,29 +319,45 @@ function TransferContent() {
 
             <div className="space-y-4 mb-8">
               <div className="flex justify-between items-center py-4 border-b-2 border-gray-200">
-                <span className="text-sm font-medium text-gray-700">Desde:</span>
-                <span className="font-semibold text-gray-900 text-lg">{selectedAccount?.nombre}</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Desde:
+                </span>
+                <span className="font-semibold text-gray-900 text-lg">
+                  {selectedAccount?.nombre}
+                </span>
               </div>
               <div className="flex justify-between items-center py-4 border-b-2 border-gray-200">
-                <span className="text-sm font-medium text-gray-700">Cuenta origen:</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Cuenta origen:
+                </span>
                 <span className="font-mono font-semibold text-gray-900 text-base">
                   {selectedAccount?.numeroCuenta}
                 </span>
               </div>
               <div className="flex justify-between items-center py-4 border-b-2 border-gray-200">
-                <span className="text-sm font-medium text-gray-700">Cuenta destino:</span>
-                <span className="font-mono font-semibold text-gray-900 text-base">{toAccountNumber}</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Cuenta destino:
+                </span>
+                <span className="font-mono font-semibold text-gray-900 text-base">
+                  {toAccountNumber}
+                </span>
               </div>
               <div className="flex justify-between items-center py-4 bg-blue-50 rounded-lg px-4 border-2 border-blue-200">
-                <span className="text-sm font-medium text-gray-700">Monto a transferir:</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Monto a transferir:
+                </span>
                 <span className="text-3xl font-bold text-blue-600">
                   ${parseFloat(amount).toFixed(2)}
                 </span>
               </div>
               {description && (
                 <div className="flex justify-between items-center py-4 border-b-2 border-gray-200">
-                  <span className="text-sm font-medium text-gray-700">Descripción:</span>
-                  <span className="font-medium text-gray-900">{description}</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    Descripción:
+                  </span>
+                  <span className="font-medium text-gray-900">
+                    {description}
+                  </span>
                 </div>
               )}
             </div>

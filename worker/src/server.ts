@@ -232,7 +232,7 @@ app.use(
     origin: function (origin, callback) {
       // Obtener orígenes permitidos desde config compartido
       const allowedOrigins = ConfigManager.getCorsOrigins();
-      
+
       // Agregar orígenes adicionales locales
       const localOrigins = [
         "http://localhost:3000",
@@ -240,16 +240,16 @@ app.use(
         "http://localhost:3002",
         "http://localhost:3003",
       ];
-      
+
       const allAllowed = [...allowedOrigins, ...localOrigins];
-      
+
       // Si no hay origin (peticiones server-to-server o Postman) o está en la lista, permitir
       if (!origin || allAllowed.includes(origin)) {
         callback(null, true);
       } else {
-        logger.warn(`🚫 CORS blocked: ${origin}`, { 
-          origin, 
-          allowed: allAllowed 
+        logger.warn(`🚫 CORS blocked: ${origin}`, {
+          origin,
+          allowed: allAllowed,
         });
         callback(new Error("Not allowed by CORS"));
       }
@@ -460,20 +460,21 @@ app.post(
         cuentaDestinoId: z.string().min(1, "Cuenta destino es requerida"),
         monto: z.number().positive("El monto debe ser positivo"),
       });
-      
+
       // Validar estructura básica
       const input = transferenciaInputSchema.parse(req.body);
-      
+
       // Resolver cuentaDestinoId si es número de cuenta
       let cuentaDestinoId = input.cuentaDestinoId;
-      
+
       // Verificar si es UUID (formato: 8-4-4-4-12 caracteres hexadecimales)
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
       if (!uuidRegex.test(cuentaDestinoId)) {
         // No es UUID, buscar cuenta por número
         const numeroLimpio = cuentaDestinoId.replace(/[-\s]/g, "");
-        
+
         const cuentaDestino = await prisma.cuentaBancaria.findFirst({
           where: {
             numeroCuenta: {
@@ -482,18 +483,20 @@ app.post(
           },
           select: { id: true },
         });
-        
+
         if (!cuentaDestino) {
-          return res.status(400).json({ 
-            error: `No se encontró una cuenta con el número: ${cuentaDestinoId}` 
+          return res.status(400).json({
+            error: `No se encontró una cuenta con el número: ${cuentaDestinoId}`,
           });
         }
-        
+
         // Reemplazar con el UUID encontrado
         cuentaDestinoId = cuentaDestino.id;
-        console.log(`✅ Cuenta destino encontrada: ${numeroLimpio} → ${cuentaDestinoId}`);
+        console.log(
+          `✅ Cuenta destino encontrada: ${numeroLimpio} → ${cuentaDestinoId}`
+        );
       }
-      
+
       // Transferir (ahora cuentaDestinoId es UUID)
       const resultado = await bancoService.transferir(
         input.cuentaOrigenId,
