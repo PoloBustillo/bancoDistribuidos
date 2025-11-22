@@ -1,8 +1,6 @@
 import { Resend } from "resend";
 
-const resend = new Resend(
-  process.env.RESEND_API_KEY || "re_9tqqBrPs_8ESmesJHa6D4G6UdDv8Zfo53"
-);
+const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.RESEND_FROM || "Banco <no-reply@psicologopuebla.com>";
 
 export async function sendNotification(

@@ -33,7 +33,7 @@ export function startGrpcServer(port = 50051) {
     grpc.ServerCredentials.createInsecure(),
     (err, bindPort) => {
       if (err) throw err;
-      server.start();
+      // server.start() is deprecated and no longer necessary
       console.log(`gRPC server listening on port ${bindPort}`);
     }
   );

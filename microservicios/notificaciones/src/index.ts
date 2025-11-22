@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import { json } from "express";
 import { sendNotification } from "./services/notifier.js";

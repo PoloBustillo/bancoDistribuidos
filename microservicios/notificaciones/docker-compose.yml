@@ -8,20 +8,27 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: user
       RABBITMQ_DEFAULT_PASS: password
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   notificaciones:
     build:
       context: .
-    command: sh -c "npm run build && npm start"
-    working_dir: /app
-    volumes:
-      - ./:/app
+      dockerfile: Dockerfile
     environment:
       RABBITMQ_URL: amqp://user:password@rabbitmq:5672
       RESEND_API_KEY: re_9tqqBrPs_8ESmesJHa6D4G6UdDv8Zfo53
       RESEND_FROM: "Banco <no-reply@psicologopuebla.com>"
+      PORT: 4001
+      GRPC_PORT: 50051
+      NOTIF_QUEUE: notificaciones
+      NODE_ENV: production
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
     ports:
       - "4001:4001" # HTTP API
       - "50051:50051" # gRPC

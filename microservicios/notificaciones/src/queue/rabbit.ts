@@ -9,10 +9,14 @@ export async function consumeNotifications(
   const conn = await amqp.connect(RABBIT_URL);
   const ch = await conn.createChannel();
   await ch.assertQueue(QUEUE, { durable: true });
-  ch.consume(QUEUE, async (msg) => {
+  interface NotificationMessage {
+    [key: string]: any;
+  }
+
+  ch.consume(QUEUE, async (msg: amqp.ConsumeMessage | null): Promise<void> => {
     if (msg) {
       try {
-        const data = JSON.parse(msg.content.toString());
+        const data: NotificationMessage = JSON.parse(msg.content.toString());
         await onMessage(data);
         ch.ack(msg);
       } catch (err) {

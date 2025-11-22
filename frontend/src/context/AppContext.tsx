@@ -280,8 +280,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       );
 
       const discoveredWorkers = results
-        .filter((r) => r.status === "fulfilled" && r.value !== null)
-        .map((r: any) => r.value);
+        .filter(
+          (r): r is PromiseFulfilledResult<Worker | null> =>
+            r.status === "fulfilled" && r.value !== null
+        )
+        .map((r) => r.value as Worker);
 
       let addedCount = 0;
       if (discoveredWorkers.length > 0) {

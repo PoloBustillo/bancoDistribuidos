@@ -2,6 +2,7 @@ import prisma from "../prisma/client";
 import { WorkerClient } from "./workerClient";
 import { Prioridad } from "../../../shared/types";
 import { bankingEvents } from "./eventEmitter";
+import { notificationClient } from "./notificationClient";
 
 export class BancoService {
   constructor(private workerClient: WorkerClient) {}
@@ -482,6 +483,38 @@ export class BancoService {
         cuentaActualizada.saldo,
         usuariosCuenta.map((u) => u.usuarioId)
       );
+
+      // ========================================
+      // 📧 ENVIAR NOTIFICACIÓN POR EMAIL
+      // ========================================
+      try {
+        const usuario = await prisma.usuario.findUnique({
+          where: { id: usuarioId },
+        });
+
+        if (usuario?.email) {
+          const fechaHora = new Date().toLocaleString("es-MX", {
+            timeZone: "America/Mexico_City",
+          });
+
+          await notificationClient.sendNotification(
+            usuario.email,
+            "Retiro Realizado - Banco Distribuido",
+            `Hola ${usuario.nombre},\n\n` +
+              `Se ha realizado un retiro en tu cuenta:\n\n` +
+              `📅 Fecha: ${fechaHora}\n` +
+              `💵 Monto: $${monto.toFixed(2)}\n` +
+              `🏦 Cuenta: ${cuentaActualizada.numeroCuenta}\n` +
+              `💰 Saldo anterior: $${cuenta.saldo.toFixed(2)}\n` +
+              `💰 Saldo nuevo: $${cuentaActualizada.saldo.toFixed(2)}\n\n` +
+              `Si no reconoces esta operación, contacta a soporte inmediatamente.\n\n` +
+              `Saludos,\nBanco Distribuido`
+          );
+        }
+      } catch (emailError) {
+        // No fallar el retiro si falla el email
+        console.error("⚠️  Error enviando notificación por email:", emailError);
+      }
 
       return {
         mensaje: "Retiro realizado exitosamente",
