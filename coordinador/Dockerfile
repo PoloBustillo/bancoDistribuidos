@@ -37,6 +37,10 @@ COPY --from=builder /app/shared ./shared
 # Copiar coordinador (código fuente + su package.json, deps están en root node_modules via symlinks)
 COPY --from=builder /app/coordinador ./coordinador
 
+# CRÍTICO: Crear symlink @banco/shared en node_modules para que Bun lo encuentre
+RUN mkdir -p node_modules/@banco && \
+    ln -sf ../../shared node_modules/@banco/shared
+
 # No cambiar a WORKDIR /app/coordinador para ejecutar
 # Bun necesita ejecutarse desde /app para resolver workspaces correctamente
 
