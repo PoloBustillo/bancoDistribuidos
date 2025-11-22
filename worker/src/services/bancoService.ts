@@ -17,7 +17,7 @@ export class BancoService {
    */
   async transferir(
     cuentaOrigenId: string,
-    cuentaDestinoId: string,
+    cuentaDestinoId: string, // UUID de la cuenta destino (ya resuelto en el endpoint)
     monto: number,
     usuarioId: string
   ) {

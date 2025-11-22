@@ -11,10 +11,14 @@ import {
   isValidAmount,
   sanitizeAmountInput,
   getAmountErrorMessage,
+  isValidAccountNumber,
+  getAccountNumberErrorMessage,
+  formatAccountNumber,
 } from "@/lib/validation";
 import {
   ArrowLeftIcon,
   ArrowRightCircleIcon,
+  CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 
 export default function TransferPage() {
@@ -31,6 +35,7 @@ function TransferContent() {
   const { showSuccess, showError } = useToast();
   const [fromAccountId, setFromAccountId] = useState("");
   const [toAccountNumber, setToAccountNumber] = useState("");
+  const [accountNumberError, setAccountNumberError] = useState("");
   const [amount, setAmount] = useState("");
   const [amountError, setAmountError] = useState("");
   const [description, setDescription] = useState("");
@@ -41,9 +46,11 @@ function TransferContent() {
   const canProceed =
     fromAccountId &&
     toAccountNumber &&
+    isValidAccountNumber(toAccountNumber) &&
     amount &&
     isValidAmount(amount) &&
-    !amountError;
+    !amountError &&
+    !accountNumberError;
 
   const handleShowConfirmation = (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,17 +182,49 @@ function TransferContent() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Para la cuenta
                 </label>
-                <input
-                  type="text"
-                  value={toAccountNumber}
-                  onChange={(e) => setToAccountNumber(e.target.value)}
-                  placeholder="Número de cuenta o ID de destino"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors placeholder:text-gray-600 placeholder:font-normal text-gray-900"
-                  required
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  Ingresa el número de cuenta del destinatario
-                </p>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={toAccountNumber}
+                    onChange={(e) => {
+                      setToAccountNumber(e.target.value);
+                      setAccountNumberError("");
+                    }}
+                    onBlur={(e) => {
+                      const val = e.target.value;
+                      if (val && !isValidAccountNumber(val)) {
+                        setAccountNumberError(
+                          getAccountNumberErrorMessage(val) || "Número de cuenta inválido"
+                        );
+                      }
+                    }}
+                    placeholder="Ej: 1234-5678-90 o 1234567890"
+                    className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 bg-white shadow-sm transition-colors placeholder:text-gray-400 text-gray-900 ${
+                      accountNumberError
+                        ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                        : toAccountNumber && isValidAccountNumber(toAccountNumber)
+                        ? "border-green-500 focus:border-green-500 focus:ring-green-500"
+                        : "border-gray-300 focus:border-blue-500 focus:ring-blue-500 hover:border-gray-400"
+                    }`}
+                    required
+                  />
+                  {toAccountNumber && isValidAccountNumber(toAccountNumber) && !accountNumberError && (
+                    <CheckCircleIcon className="absolute right-3 top-3 w-6 h-6 text-green-500" />
+                  )}
+                </div>
+                {accountNumberError && (
+                  <p className="mt-2 text-sm text-red-600">{accountNumberError}</p>
+                )}
+                {!accountNumberError && toAccountNumber && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    ✓ Número de cuenta válido: {formatAccountNumber(toAccountNumber)}
+                  </p>
+                )}
+                {!toAccountNumber && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    Ingresa el número de cuenta del destinatario (puede incluir guiones)
+                  </p>
+                )}
               </div>
 
               {/* Amount */}
@@ -244,7 +283,7 @@ function TransferContent() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Concepto de la transferencia"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors placeholder:text-gray-600 placeholder:font-normal"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors placeholder:text-gray-400 text-gray-900 font-medium"
                 />
               </div>
 
@@ -271,30 +310,30 @@ function TransferContent() {
             </h2>
 
             <div className="space-y-4 mb-8">
-              <div className="flex justify-between py-3 border-b">
-                <span className="text-gray-600">Desde:</span>
-                <span className="font-semibold">{selectedAccount?.nombre}</span>
+              <div className="flex justify-between items-center py-4 border-b-2 border-gray-200">
+                <span className="text-sm font-medium text-gray-700">Desde:</span>
+                <span className="font-semibold text-gray-900 text-lg">{selectedAccount?.nombre}</span>
               </div>
-              <div className="flex justify-between py-3 border-b">
-                <span className="text-gray-600">Cuenta origen:</span>
-                <span className="font-mono">
+              <div className="flex justify-between items-center py-4 border-b-2 border-gray-200">
+                <span className="text-sm font-medium text-gray-700">Cuenta origen:</span>
+                <span className="font-mono font-semibold text-gray-900 text-base">
                   {selectedAccount?.numeroCuenta}
                 </span>
               </div>
-              <div className="flex justify-between py-3 border-b">
-                <span className="text-gray-600">Cuenta destino:</span>
-                <span className="font-mono">{toAccountNumber}</span>
+              <div className="flex justify-between items-center py-4 border-b-2 border-gray-200">
+                <span className="text-sm font-medium text-gray-700">Cuenta destino:</span>
+                <span className="font-mono font-semibold text-gray-900 text-base">{toAccountNumber}</span>
               </div>
-              <div className="flex justify-between py-3 border-b">
-                <span className="text-gray-600">Monto:</span>
-                <span className="text-2xl font-bold text-blue-600">
+              <div className="flex justify-between items-center py-4 bg-blue-50 rounded-lg px-4 border-2 border-blue-200">
+                <span className="text-sm font-medium text-gray-700">Monto a transferir:</span>
+                <span className="text-3xl font-bold text-blue-600">
                   ${parseFloat(amount).toFixed(2)}
                 </span>
               </div>
               {description && (
-                <div className="flex justify-between py-3 border-b">
-                  <span className="text-gray-600">Descripción:</span>
-                  <span>{description}</span>
+                <div className="flex justify-between items-center py-4 border-b-2 border-gray-200">
+                  <span className="text-sm font-medium text-gray-700">Descripción:</span>
+                  <span className="font-medium text-gray-900">{description}</span>
                 </div>
               )}
             </div>

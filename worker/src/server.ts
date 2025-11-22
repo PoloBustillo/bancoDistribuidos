@@ -439,7 +439,7 @@ app.get(
 // Schemas de validación
 const transferenciaSchema = z.object({
   cuentaOrigenId: z.string().uuid(),
-  cuentaDestinoId: z.string().uuid(),
+  cuentaDestinoId: z.string().uuid(), // Validar como UUID (ya resuelto en el endpoint)
   monto: z.number().positive(),
 });
 
@@ -454,11 +454,51 @@ app.post(
   verificarAuth,
   async (req: AuthRequest, res: Response) => {
     try {
-      const data = transferenciaSchema.parse(req.body);
+      // Schema temporal para validación inicial (acepta string para cuentaDestinoId)
+      const transferenciaInputSchema = z.object({
+        cuentaOrigenId: z.string().uuid(),
+        cuentaDestinoId: z.string().min(1, "Cuenta destino es requerida"),
+        monto: z.number().positive("El monto debe ser positivo"),
+      });
+      
+      // Validar estructura básica
+      const input = transferenciaInputSchema.parse(req.body);
+      
+      // Resolver cuentaDestinoId si es número de cuenta
+      let cuentaDestinoId = input.cuentaDestinoId;
+      
+      // Verificar si es UUID (formato: 8-4-4-4-12 caracteres hexadecimales)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      
+      if (!uuidRegex.test(cuentaDestinoId)) {
+        // No es UUID, buscar cuenta por número
+        const numeroLimpio = cuentaDestinoId.replace(/[-\s]/g, "");
+        
+        const cuentaDestino = await prisma.cuentaBancaria.findFirst({
+          where: {
+            numeroCuenta: {
+              in: [numeroLimpio, cuentaDestinoId],
+            },
+          },
+          select: { id: true },
+        });
+        
+        if (!cuentaDestino) {
+          return res.status(400).json({ 
+            error: `No se encontró una cuenta con el número: ${cuentaDestinoId}` 
+          });
+        }
+        
+        // Reemplazar con el UUID encontrado
+        cuentaDestinoId = cuentaDestino.id;
+        console.log(`✅ Cuenta destino encontrada: ${numeroLimpio} → ${cuentaDestinoId}`);
+      }
+      
+      // Transferir (ahora cuentaDestinoId es UUID)
       const resultado = await bancoService.transferir(
-        data.cuentaOrigenId,
-        data.cuentaDestinoId,
-        data.monto,
+        input.cuentaOrigenId,
+        cuentaDestinoId,
+        input.monto,
         req.usuario!.id
       );
 

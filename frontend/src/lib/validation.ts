@@ -120,3 +120,59 @@ export function getAmountErrorMessage(
 
   return null;
 }
+
+/**
+ * Valida que un número de cuenta tenga formato válido
+ * Acepta formatos: 1234567890, 1234-5678-90, 1234 5678 90
+ */
+export function isValidAccountNumber(accountNumber: string): boolean {
+  if (!accountNumber || !accountNumber.trim()) {
+    return false;
+  }
+
+  // Remover guiones y espacios
+  const cleaned = accountNumber.replace(/[-\s]/g, "");
+
+  // Debe tener al menos 4 dígitos y máximo 20
+  // Solo números permitidos
+  const accountRegex = /^\d{4,20}$/;
+  return accountRegex.test(cleaned);
+}
+
+/**
+ * Valida si un string es un UUID válido
+ */
+export function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
+
+/**
+ * Formatea un número de cuenta para mostrar
+ * Ejemplo: 1234567890 → 1234-5678-90
+ */
+export function formatAccountNumber(accountNumber: string): string {
+  // Remover caracteres no numéricos
+  const cleaned = accountNumber.replace(/\D/g, "");
+  
+  // Si tiene más de 4 dígitos, agregar guiones
+  if (cleaned.length <= 4) return cleaned;
+  if (cleaned.length <= 8) return `${cleaned.slice(0, 4)}-${cleaned.slice(4)}`;
+  
+  return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}-${cleaned.slice(8)}`;
+}
+
+/**
+ * Obtiene el mensaje de error para número de cuenta
+ */
+export function getAccountNumberErrorMessage(accountNumber: string): string | null {
+  if (!accountNumber || !accountNumber.trim()) {
+    return "El número de cuenta es requerido";
+  }
+
+  if (!isValidAccountNumber(accountNumber)) {
+    return "Formato de cuenta inválido. Debe contener entre 4 y 20 dígitos";
+  }
+
+  return null;
+}

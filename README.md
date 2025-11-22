@@ -4,7 +4,49 @@ Un sistema bancario distribuido que implementa el patrón **Coordinador-Trabajad
 
 ## 🚀 Quick Start
 
-### 🐋 Deployment con Docker (Recomendado)
+Existen **3 formas** de ejecutar el sistema. Elige la que mejor se adapte a tu entorno:
+
+### 🐋 Opción 1: Docker con PostgreSQL Incluido (Más Fácil)
+
+Ideal para **desarrollo local** o **testing**. Incluye base de datos PostgreSQL en contenedor.
+
+```bash
+# 1. Clonar repositorio
+git clone https://github.com/PoloBustillo/bancoDistribuidos.git
+cd bancoDistribuidos
+
+# 2. Configurar password de base de datos
+echo "DB_PASSWORD=tu_password_seguro" > .env
+
+# 3. Iniciar TODOS los servicios (PostgreSQL + Coordinador + 3 Workers)
+docker compose -f docker-compose.full.yml up -d
+
+# 4. Ejecutar migraciones de base de datos (solo primera vez)
+docker exec banco-worker-1 sh -c "cd /app/worker && bunx prisma migrate deploy"
+
+# 5. (Opcional) Cargar datos de prueba
+docker exec banco-worker-1 sh -c "cd /app/worker && bun run seed:advisor"
+
+# 6. Verificar que todo funciona
+docker compose -f docker-compose.full.yml ps
+# Deberías ver: postgres, coordinador, worker-1, worker-2, worker-3 (5 contenedores)
+
+# 7. Ver logs en tiempo real
+docker compose -f docker-compose.full.yml logs -f
+```
+
+✅ **URLs de acceso:**
+- Coordinador: `http://localhost:4000`
+- Worker 1: `http://localhost:3001`
+- Worker 2: `http://localhost:3002`
+- Worker 3: `http://localhost:3003`
+- PostgreSQL: `localhost:5432` (usuario: `banco_user`, db: `banco`)
+
+---
+
+### 🌐 Opción 2: Docker con Base de Datos Externa (Producción)
+
+Ideal para **servidores en producción** con BD PostgreSQL existente.
 
 ```bash
 # 1. Clonar repositorio
@@ -13,35 +55,94 @@ cd bancoDistribuidos
 
 # 2. Configurar variables de entorno
 cp .env.example .env
-# Editar .env con tus credenciales
+nano .env  # Editar DATABASE_URL, JWT_SECRET, CORS_ORIGIN
 
-# 3. Iniciar servicios
+# Ejemplo de .env:
+# DATABASE_URL=postgresql://usuario:password@tu-servidor.com:5432/banco
+# JWT_SECRET=tu_secreto_super_seguro_cambiar_en_produccion
+# CORS_ORIGIN=https://tudominio.com
+
+# 3. Iniciar servicios (Coordinador + 3 Workers)
 docker compose up -d
 
-# 4. Ver logs
-docker compose logs -f
+# 4. Ejecutar migraciones en la base de datos externa
+docker exec banco-worker-1 sh -c "cd /app/worker && bunx prisma migrate deploy"
+
+# 5. Verificar estado
+docker compose ps
+docker compose logs -f coordinador
+docker compose logs -f worker-1
 ```
 
-**Nota:** Si migraste de PM2 a Docker, lee primero: [`MIGRATION-PM2-TO-DOCKER.md`](./MIGRATION-PM2-TO-DOCKER.md)
+📝 **Nota:** Si tu BD está en `localhost` del servidor y tienes problemas de conexión, descomenta `network_mode: "host"` en los workers del `docker-compose.yml`.
 
-### 📦 Development Local (Sin Docker)
+---
+
+### � Opción 3: Desarrollo Local Sin Docker (Más Control)
+
+Ideal para **desarrollo activo** con hot-reload y debugging.
+
+#### Prerequisitos
+- [Bun](https://bun.sh) v1.0+ instalado
+- PostgreSQL corriendo (local o remoto)
+- Node.js v18+ (opcional, Bun es suficiente)
 
 ```bash
-# Instalar dependencias
+# 1. Clonar repositorio
+git clone https://github.com/PoloBustillo/bancoDistribuidos.git
+cd bancoDistribuidos
+
+# 2. Instalar dependencias en todos los workspaces
 bun install
 
-# Iniciar coordinador
-cd coordinador && bun dev
+# 3. Configurar base de datos
+cd worker
+echo "DATABASE_URL=postgresql://usuario:password@localhost:5432/banco" > .env
+echo "JWT_SECRET=dev_secret_123" >> .env
 
-# En otra terminal, iniciar workers
-cd worker && bun dev
+# 4. Ejecutar migraciones
+bun run prisma:migrate:dev
+
+# 5. (Opcional) Cargar datos de prueba
+bun run seed:advisor
+
+# 6. Iniciar servicios en terminales separadas
+
+# Terminal 1: Coordinador
+cd coordinador
+bun run dev  # Puerto 4000
+
+# Terminal 2: Worker 1
+cd worker
+PORT=3001 bun run dev
+
+# Terminal 3: Worker 2
+cd worker
+PORT=3002 bun run dev
+
+# Terminal 4: Worker 3
+cd worker
+PORT=3003 bun run dev
+
+# Terminal 5 (Opcional): Frontend
+cd frontend
+bun run dev  # Puerto 3000
 ```
 
-**Documentación completa:**
+**🔥 Comando rápido para iniciar todo a la vez:**
+```bash
+# Desde la raíz del proyecto
+bun run dev:backend  # Inicia coordinador + 1 worker
+```
 
-- 🐋 [Deployment con Docker + GitHub Actions](./DEPLOYMENT-GITHUB-ACTIONS.md)
-- 🔄 [Migración de PM2 a Docker](./MIGRATION-PM2-TO-DOCKER.md)
-- 📋 [Deployment Original](./DEPLOYMENT-FINAL.md)
+---
+
+### � Documentación Adicional
+
+- 🐋 [Docker Setup Completo](./DOCKER-SETUP.md)
+- 🔄 [GitHub Actions CI/CD](./DEPLOYMENT-GITHUB-ACTIONS.md)
+- 📋 [Deployment Manual en Servidor](./DEPLOYMENT-FINAL.md)
+- 🚨 [Troubleshooting Común](#-troubleshooting-común)
 
 ## � Arquitectura
 
@@ -534,28 +635,90 @@ docker compose logs -f
 docker compose ps
 ```
 
-### Gestión con Docker Compose
+### 🎛️ Gestión con Docker Compose
+
+#### Comandos Básicos
 
 ```bash
-# Ver todos los contenedores
+# Ver estado de todos los contenedores
 docker compose ps
+# O si usas docker-compose.full.yml:
+docker compose -f docker-compose.full.yml ps
 
-# Ver logs específicos
-docker compose logs coordinador
-docker compose logs worker-1
+# Ver logs en tiempo real
+docker compose logs -f                    # Todos los servicios
+docker compose logs -f coordinador        # Solo coordinador
+docker compose logs -f worker-1 worker-2  # Múltiples servicios
 
-# Reiniciar un servicio
-docker compose restart worker-2
+# Ver últimas 100 líneas de logs
+docker compose logs --tail=100 worker-1
 
-# Detener todo
+# Reiniciar servicios
+docker compose restart worker-2           # Un servicio específico
+docker compose restart                    # Todos los servicios
+
+# Detener todo (mantiene volúmenes)
 docker compose down
 
-# Reconstruir imágenes
-docker compose build --no-cache
-docker compose up -d
+# Detener y eliminar volúmenes (⚠️ BORRA LA BD)
+docker compose down -v
 
-# Ver recursos consumidos
+# Detener sin eliminar contenedores
+docker compose stop
+
+# Iniciar contenedores existentes
+docker compose start
+```
+
+#### Reconstruir Imágenes
+
+```bash
+# Reconstruir una imagen específica
+docker compose build coordinador
+
+# Reconstruir todas las imágenes sin cache
+docker compose build --no-cache
+
+# Reconstruir y reiniciar
+docker compose up -d --build
+
+# Forzar recreación de contenedores
+docker compose up -d --force-recreate
+```
+
+#### Monitoreo y Debugging
+
+```bash
+# Ver recursos consumidos (CPU, RAM, Red)
 docker stats
+
+# Inspeccionar un contenedor
+docker inspect banco-worker-1
+
+# Entrar a un contenedor (shell interactivo)
+docker exec -it banco-worker-1 sh
+
+# Ejecutar comando en contenedor
+docker exec banco-worker-1 ps aux
+
+# Ver health status
+docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Health}}"
+
+# Ver puertos mapeados
+docker compose port worker-1 3001
+```
+
+#### Limpieza
+
+```bash
+# Eliminar contenedores huérfanos
+docker compose down --remove-orphans
+
+# Limpiar imágenes no usadas
+docker image prune -a
+
+# Limpiar TODO (⚠️ contenedores, redes, volúmenes, imágenes)
+docker system prune -a --volumes
 ```
 
 ### Backups Automáticos
@@ -587,6 +750,285 @@ GitHub Push → GitHub Actions → SSH al Servidor → Docker Compose
 📚 **Documentación completa Docker**: Ver [DOCKER-SETUP.md](./DOCKER-SETUP.md)  
 📚 **Deployment manual (sin Docker)**: Ver [DEPLOYMENT.md](./DEPLOYMENT.md)
 
+## 🚨 Troubleshooting Común
+
+### 🐳 Problemas con Docker
+
+#### ❌ Error: "Cannot connect to the Docker daemon"
+
+```bash
+# Windows/Mac: Asegúrate de que Docker Desktop esté corriendo
+# Linux: Inicia el servicio
+sudo systemctl start docker
+
+# Verifica que Docker funciona
+docker --version
+docker ps
+```
+
+#### ❌ Error: "port is already allocated"
+
+Un puerto ya está en uso (3001, 3002, 3003, 4000, 5432).
+
+```bash
+# Ver qué proceso usa el puerto
+# Windows:
+netstat -ano | findstr :3001
+
+# Linux/Mac:
+lsof -i :3001
+
+# Solución 1: Matar el proceso
+# Windows:
+taskkill /PID <PID> /F
+
+# Linux/Mac:
+kill -9 <PID>
+
+# Solución 2: Cambiar el puerto en docker-compose.yml
+ports:
+  - "3011:3001"  # Mapea puerto 3011 del host → 3001 del contenedor
+```
+
+#### ❌ Workers no se conectan al Coordinador
+
+```bash
+# 1. Verifica que el coordinador esté corriendo
+docker compose logs coordinador
+
+# 2. Verifica la variable COORDINADOR_URL en workers
+docker exec banco-worker-1 printenv COORDINADOR_URL
+# Debe ser: http://coordinador:4000
+
+# 3. Verifica que estén en la misma red
+docker network inspect bancodistribuidos_banco-network
+
+# 4. Test de conectividad desde un worker
+docker exec banco-worker-1 ping coordinador
+docker exec banco-worker-1 curl http://coordinador:4000/health
+```
+
+#### ❌ Contenedores se reinician constantemente
+
+```bash
+# Ver logs para identificar el error
+docker compose logs --tail=50 worker-1
+
+# Errores comunes:
+# - "Connection refused" → Base de datos no disponible
+# - "EADDRINUSE" → Puerto ya en uso
+# - "MODULE_NOT_FOUND" → Falta reconstruir imagen
+
+# Solución: Reconstruir imagen
+docker compose build worker --no-cache
+docker compose up -d worker-1
+```
+
+---
+
+### 🗄️ Problemas con Base de Datos
+
+#### ❌ Error: "Can't reach database server"
+
+```bash
+# Con docker-compose.full.yml:
+# 1. Verifica que PostgreSQL esté corriendo
+docker compose -f docker-compose.full.yml ps postgres
+
+# 2. Verifica health check
+docker inspect banco-postgres --format='{{.State.Health.Status}}'
+# Debe ser: healthy
+
+# 3. Test de conexión
+docker exec banco-postgres psql -U banco_user -d banco -c "SELECT 1;"
+
+# Con base de datos externa:
+# 1. Verifica DATABASE_URL en .env
+cat .env | grep DATABASE_URL
+
+# 2. Test desde tu máquina
+psql "postgresql://usuario:password@host:5432/banco" -c "SELECT 1;"
+
+# 3. Verifica firewall/security groups del servidor de BD
+```
+
+#### ❌ Error: "Prisma schema not found"
+
+```bash
+# Regenerar Prisma Client
+docker exec banco-worker-1 sh -c "cd /app/worker && bunx prisma generate"
+
+# Ejecutar migraciones
+docker exec banco-worker-1 sh -c "cd /app/worker && bunx prisma migrate deploy"
+
+# Verificar schema
+docker exec banco-worker-1 cat /app/worker/prisma/schema.prisma
+```
+
+#### ❌ Migraciones fallan
+
+```bash
+# Ver estado de migraciones
+docker exec banco-worker-1 sh -c "cd /app/worker && bunx prisma migrate status"
+
+# Resetear base de datos (⚠️ BORRA TODO)
+docker exec banco-worker-1 sh -c "cd /app/worker && bunx prisma migrate reset"
+
+# Forzar una migración específica
+docker exec banco-worker-1 sh -c "cd /app/worker && bunx prisma migrate resolve --applied <migration_name>"
+```
+
+---
+
+### 🔐 Problemas de Autenticación
+
+#### ❌ Error: "Invalid token" / "Token expired"
+
+```bash
+# 1. Verifica que JWT_SECRET sea el mismo en todos los workers
+docker exec banco-worker-1 printenv JWT_SECRET
+docker exec banco-worker-2 printenv JWT_SECRET
+docker exec banco-worker-3 printenv JWT_SECRET
+
+# 2. Limpia el sessionStorage del navegador
+# Abre DevTools (F12) → Console:
+sessionStorage.clear()
+location.reload()
+
+# 3. Verifica la fecha/hora del servidor
+docker exec banco-worker-1 date
+# Si está mal configurada, los tokens expiran inmediatamente
+```
+
+#### ❌ CORS Error en el navegador
+
+```bash
+# 1. Verifica CORS_ORIGIN en .env
+cat .env | grep CORS_ORIGIN
+
+# 2. Debe incluir el dominio del frontend (sin slash al final)
+CORS_ORIGIN=https://banco-distribuidos.vercel.app,http://localhost:3000
+
+# 3. Reinicia los workers después de cambiar .env
+docker compose restart worker-1 worker-2 worker-3
+```
+
+---
+
+### 🔧 Desarrollo Local Sin Docker
+
+#### ❌ Error: "bun: command not found"
+
+```bash
+# Instalar Bun
+# Mac/Linux:
+curl -fsSL https://bun.sh/install | bash
+
+# Windows (PowerShell como admin):
+powershell -c "irm bun.sh/install.ps1|iex"
+
+# Verificar instalación
+bun --version
+```
+
+#### ❌ Error al instalar dependencias
+
+```bash
+# Limpiar cache de Bun
+rm -rf node_modules
+rm -f bun.lockb
+
+# Reinstalar
+bun install
+
+# Si persiste, usa npm
+npm install
+```
+
+#### ❌ Puerto ya en uso (sin Docker)
+
+```bash
+# Cambiar puerto al iniciar
+PORT=3005 bun run dev
+
+# O editar el .env del servicio
+echo "PORT=3005" >> worker/.env
+```
+
+---
+
+### 📡 Problemas de Red y Conectividad
+
+#### ❌ Frontend no conecta con Backend
+
+```bash
+# 1. Verifica que el backend esté corriendo
+curl http://localhost:3001/api/health
+
+# 2. Verifica variables de entorno del frontend
+cat frontend/.env.local
+# Debe contener:
+NEXT_PUBLIC_API_URL=http://localhost:3001
+
+# 3. Verifica CORS en el backend
+docker compose logs worker-1 | grep CORS
+```
+
+#### ❌ WebSocket disconnected (Coordinador)
+
+```bash
+# 1. Verifica que el coordinador esté activo
+curl http://localhost:4000/health
+
+# 2. Ver logs del coordinador
+docker compose logs -f coordinador
+
+# 3. Verifica que workers puedan llegar al coordinador
+docker exec banco-worker-1 nc -zv coordinador 4000
+```
+
+---
+
+### 🛠️ Comandos de Diagnóstico Rápido
+
+```bash
+# Verificar TODOS los servicios
+./scripts/health-check.sh  # Si existe
+
+# O manualmente:
+echo "=== DOCKER ==="
+docker compose ps
+echo "\n=== COORDINADOR ==="
+curl -s http://localhost:4000/health | jq
+echo "\n=== WORKERS ==="
+curl -s http://localhost:3001/api/health | jq
+curl -s http://localhost:3002/api/health | jq
+curl -s http://localhost:3003/api/health | jq
+echo "\n=== DATABASE ==="
+docker exec banco-postgres pg_isready -U banco_user
+```
+
+---
+
+### 📞 Obtener Ayuda
+
+Si ninguna solución funciona:
+
+1. **Crea un issue** en GitHub con:
+   - Comando que ejecutaste
+   - Error completo (logs)
+   - Sistema operativo
+   - Versión de Docker / Bun
+
+2. **Revisa issues cerrados** → Puede que ya esté resuelto
+
+3. **Logs completos**:
+   ```bash
+   docker compose logs > logs.txt
+   ```
+
+---
+
 ## 🎓 Conceptos Aprendidos
 
 ✅ Sincronización de recursos compartidos  
@@ -597,8 +1039,12 @@ GitHub Push → GitHub Actions → SSH al Servidor → Docker Compose
 ✅ Desarrollo full-stack  
 ✅ **CI/CD con GitHub Actions**  
 ✅ **Deployment automatizado con SSH**  
-✅ **Gestión de procesos con PM2**
+✅ **Gestión de procesos con Docker**  
+✅ **Sistema de locks distribuidos**  
+✅ **Coordinación de workers**
 
 ---
 
 **¡Explora los sistemas distribuidos!** 🚀
+
+Si encuentras algún problema no documentado, [abre un issue](https://github.com/PoloBustillo/bancoDistribuidos/issues/new) 📝
