@@ -15,11 +15,17 @@ async function main() {
   if (!process.env.DATABASE_URL) {
     console.error("❌ ERROR: DATABASE_URL no está configurada.");
     console.log("\n💡 Soluciones posibles:");
-    console.log("   1. Asegúrate de tener un archivo .env en el directorio worker/");
+    console.log(
+      "   1. Asegúrate de tener un archivo .env en el directorio worker/"
+    );
     console.log("   2. O ejecuta: docker-compose up -d postgres");
     console.log("   3. O define DATABASE_URL manualmente:");
-    console.log('      set DATABASE_URL=postgresql://user:pass@localhost:5432/banco (Windows)');
-    console.log('      export DATABASE_URL=postgresql://user:pass@localhost:5432/banco (Linux/Mac)\n');
+    console.log(
+      "      set DATABASE_URL=postgresql://user:pass@localhost:5432/banco (Windows)"
+    );
+    console.log(
+      "      export DATABASE_URL=postgresql://user:pass@localhost:5432/banco (Linux/Mac)\n"
+    );
     process.exit(1);
   }
 
@@ -88,7 +94,9 @@ async function main() {
     }
   }
 
-  console.log("\n╔════════════════════════════════════════════════════════════╗");
+  console.log(
+    "\n╔════════════════════════════════════════════════════════════╗"
+  );
   console.log("║                                                            ║");
   console.log("║           🎉 Asesores creados exitosamente                 ║");
   console.log("║                                                            ║");
@@ -100,7 +108,9 @@ async function main() {
   console.log("║     • 87654321b (María García)                             ║");
   console.log("║     • 11223344c (Carlos López)                             ║");
   console.log("║                                                            ║");
-  console.log("╚════════════════════════════════════════════════════════════╝\n");
+  console.log(
+    "╚════════════════════════════════════════════════════════════╝\n"
+  );
 }
 
 main()

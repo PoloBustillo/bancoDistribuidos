@@ -966,6 +966,84 @@ app.post(
   }
 );
 
+// PATCH /api/advisor/client/:usuarioId/account/:cuentaId/status - Cambiar estado de cuenta
+app.patch(
+  "/api/advisor/client/:usuarioId/account/:cuentaId/status",
+  verificarAsesor,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { usuarioId, cuentaId } = req.params;
+      const schema = z.object({
+        estado: z.enum(["ACTIVA", "BLOQUEADA", "CERRADA"]),
+      });
+
+      const { estado } = schema.parse(req.body);
+
+      if (req.usuario!.id !== usuarioId) {
+        return res.status(403).json({
+          error: "No tiene acceso a este cliente",
+        });
+      }
+
+      const cuentaActualizada = await advisorService.cambiarEstadoCuenta(
+        req.usuario!.asesorId!,
+        usuarioId,
+        cuentaId,
+        estado,
+        req.ip,
+        req.get("user-agent")
+      );
+
+      res.json({
+        message: `Estado de cuenta actualizado a ${estado}`,
+        cuenta: cuentaActualizada,
+      });
+    } catch (error: any) {
+      console.error("Error al cambiar estado de cuenta:", error.message);
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+// PATCH /api/advisor/client/:usuarioId/card/:tarjetaId/status - Cambiar estado de tarjeta
+app.patch(
+  "/api/advisor/client/:usuarioId/card/:tarjetaId/status",
+  verificarAsesor,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { usuarioId, tarjetaId } = req.params;
+      const schema = z.object({
+        estado: z.enum(["ACTIVA", "BLOQUEADA", "CANCELADA"]),
+      });
+
+      const { estado } = schema.parse(req.body);
+
+      if (req.usuario!.id !== usuarioId) {
+        return res.status(403).json({
+          error: "No tiene acceso a este cliente",
+        });
+      }
+
+      const tarjetaActualizada = await advisorService.cambiarEstadoTarjeta(
+        req.usuario!.asesorId!,
+        usuarioId,
+        tarjetaId,
+        estado,
+        req.ip,
+        req.get("user-agent")
+      );
+
+      res.json({
+        message: `Estado de tarjeta actualizado a ${estado}`,
+        tarjeta: tarjetaActualizada,
+      });
+    } catch (error: any) {
+      console.error("Error al cambiar estado de tarjeta:", error.message);
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
 // ============== SALUD DEL SERVIDOR ==============
 
 app.get("/api/health", (req: Request, res: Response) => {

@@ -494,11 +494,107 @@ export class AdvisorService {
   }
 
   // ========================================
+  // ASESOR: Cambiar estado de cuenta
+  // ========================================
+  async cambiarEstadoCuenta(
+    asesorId: string,
+    usuarioId: string,
+    cuentaId: string,
+    nuevoEstado: "ACTIVA" | "BLOQUEADA" | "CERRADA",
+    ip?: string,
+    userAgent?: string
+  ) {
+    // Verificar que el usuario tiene acceso a la cuenta
+    const usuarioCuenta = await prisma.usuarioCuenta.findUnique({
+      where: {
+        usuarioId_cuentaId: { usuarioId, cuentaId },
+      },
+      include: { cuenta: true },
+    });
+
+    if (!usuarioCuenta) {
+      throw new Error("Usuario no tiene acceso a esta cuenta");
+    }
+
+    const estadoAnterior = usuarioCuenta.cuenta.estado;
+
+    // Actualizar estado
+    const cuentaActualizada = await prisma.cuentaBancaria.update({
+      where: { id: cuentaId },
+      data: { estado: nuevoEstado },
+    });
+
+    // Registrar auditoría
+    await this.registrarAuditoria(
+      asesorId,
+      usuarioId,
+      "CHANGE_ACCOUNT_STATUS",
+      cuentaId,
+      {
+        estadoAnterior,
+        estadoNuevo: nuevoEstado,
+        numeroCuenta: cuentaActualizada.numeroCuenta,
+      },
+      ip,
+      userAgent
+    );
+
+    return cuentaActualizada;
+  }
+
+  // ========================================
+  // ASESOR: Cambiar estado de tarjeta
+  // ========================================
+  async cambiarEstadoTarjeta(
+    asesorId: string,
+    usuarioId: string,
+    tarjetaId: string,
+    nuevoEstado: "ACTIVA" | "BLOQUEADA" | "CANCELADA",
+    ip?: string,
+    userAgent?: string
+  ) {
+    // Verificar que la tarjeta pertenece al usuario
+    const tarjeta = await prisma.tarjeta.findUnique({
+      where: { id: tarjetaId },
+    });
+
+    if (!tarjeta || tarjeta.usuarioId !== usuarioId) {
+      throw new Error("Tarjeta no encontrada o no pertenece al usuario");
+    }
+
+    const estadoAnterior = tarjeta.estado;
+
+    // Actualizar estado
+    const tarjetaActualizada = await prisma.tarjeta.update({
+      where: { id: tarjetaId },
+      data: { estado: nuevoEstado },
+    });
+
+    // Registrar auditoría
+    await this.registrarAuditoria(
+      asesorId,
+      usuarioId,
+      "CHANGE_CARD_STATUS",
+      tarjetaId,
+      {
+        estadoAnterior,
+        estadoNuevo: nuevoEstado,
+        numeroTarjeta: tarjetaActualizada.numeroTarjeta.slice(-4),
+      },
+      ip,
+      userAgent
+    );
+
+    return tarjetaActualizada;
+  }
+
+  // ========================================
   // ADMIN: Crear asesor
   // ========================================
-  async crearAsesor(nombre: string, email: string, codigo: string) {
+  async crearAsesor(id: string, nombre: string, email: string, codigo: string) {
     return await prisma.asesor.create({
       data: {
+        id,
         nombre,
         email,
         codigo,

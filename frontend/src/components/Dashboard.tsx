@@ -34,6 +34,21 @@ export default function Dashboard() {
                   <p className="text-sm text-gray-500 mt-2">
                     {accounts.length} cuenta{accounts.length !== 1 ? "s" : ""} •{" "}
                     {cards.length} tarjeta{cards.length !== 1 ? "s" : ""}
+                    {cards.filter((c) => c.estado === "BLOQUEADA").length >
+                      0 && (
+                      <span className="text-yellow-600 font-medium">
+                        {" "}
+                        ({
+                          cards.filter((c) => c.estado === "BLOQUEADA").length
+                        }{" "}
+                        bloqueada
+                        {cards.filter((c) => c.estado === "BLOQUEADA")
+                          .length !== 1
+                          ? "s"
+                          : ""}
+                        )
+                      </span>
+                    )}
                   </p>
                 </div>
                 <div className="ml-4">

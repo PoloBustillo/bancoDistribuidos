@@ -331,15 +331,19 @@ async function mainMenu() {
       "╚════════════════════════════════════════════════════════════╝\n"
     );
     console.log("━━━━━━━━━━━━━━━━━━ MENÚ PRINCIPAL ━━━━━━━━━━━━━━━━━━━━━━━\n");
-    console.log("  1️⃣  Ver todas las cuentas del cliente");
-    console.log("  2️⃣  Ver todas las tarjetas del cliente");
-    console.log("  3️⃣  Consultar saldo de cuenta específica");
-    console.log("  4️⃣  Cerrar sesión y salir\n");
+    console.log("  📊 CONSULTAS:");
+    console.log("    1️⃣  Ver todas las cuentas del cliente");
+    console.log("    2️⃣  Ver todas las tarjetas del cliente");
+    console.log("    3️⃣  Consultar saldo de cuenta específica\n");
+    console.log("  ⚙️  ADMINISTRACIÓN:");
+    console.log("    4️⃣  Cambiar estado de cuenta");
+    console.log("    5️⃣  Cambiar estado de tarjeta\n");
+    console.log("  6️⃣  Cerrar sesión y salir\n");
     console.log(
       "═══════════════════════════════════════════════════════════\n"
     );
 
-    const option = await prompt("👉 Seleccione una opción (1-4): ");
+    const option = await prompt("👉 Seleccione una opción (1-6): ");
 
     switch (option) {
       case "1":
@@ -352,10 +356,16 @@ async function mainMenu() {
         await showBalance();
         break;
       case "4":
+        await changeAccountStatus();
+        break;
+      case "5":
+        await changeCardStatus();
+        break;
+      case "6":
         await logoutAndExit();
         return;
       default:
-        showError("Opción inválida. Debe seleccionar un número del 1 al 4");
+        showError("Opción inválida. Debe seleccionar un número del 1 al 6");
         await prompt("Presione Enter para continuar...");
     }
   }
@@ -642,6 +652,200 @@ async function logoutAndExit() {
   console.log("   Vuelva pronto.\n");
   rl.close();
   process.exit(0);
+}
+
+async function changeAccountStatus() {
+  clearScreen();
+  showHeader();
+  console.log("━━━━━━━━━━━━ ⚙️  CAMBIAR ESTADO DE CUENTA ━━━━━━━━━━━━━━━\n");
+
+  try {
+    // Obtener cuentas
+    const cuentas = await getClientAccounts(currentClient.id);
+
+    if (cuentas.length === 0) {
+      showError("El cliente no tiene cuentas registradas");
+      await prompt("Presione Enter para continuar...");
+      return;
+    }
+
+    // Mostrar cuentas disponibles
+    console.log("📋 Cuentas disponibles:\n");
+    cuentas.forEach((cuenta: any, index: number) => {
+      console.log(
+        `  ${index + 1}. ${cuenta.numeroCuenta} - ${cuenta.nombre} (${
+          cuenta.estado
+        })`
+      );
+    });
+
+    console.log("\n");
+    const seleccion = await prompt(
+      `👉 Seleccione una cuenta (1-${cuentas.length}): `
+    );
+    const index = parseInt(seleccion) - 1;
+
+    if (isNaN(index) || index < 0 || index >= cuentas.length) {
+      showError("Selección inválida");
+      await prompt("Presione Enter para continuar...");
+      return;
+    }
+
+    const cuentaSeleccionada = cuentas[index];
+
+    // Mostrar estados disponibles
+    console.log("\n📊 Estados disponibles:\n");
+    console.log("  1. ACTIVA");
+    console.log("  2. BLOQUEADA");
+    console.log("  3. CERRADA\n");
+
+    const estadoOpt = await prompt("👉 Seleccione nuevo estado (1-3): ");
+    const estados = ["ACTIVA", "BLOQUEADA", "CERRADA"];
+    const nuevoEstado = estados[parseInt(estadoOpt) - 1];
+
+    if (!nuevoEstado) {
+      showError("Estado inválido");
+      await prompt("Presione Enter para continuar...");
+      return;
+    }
+
+    // Confirmar
+    const confirmar = await prompt(
+      `\n⚠️  ¿Confirma cambiar el estado de la cuenta ${cuentaSeleccionada.numeroCuenta} a ${nuevoEstado}? (s/n): `
+    );
+
+    if (confirmar.toLowerCase() !== "s") {
+      console.log("\n❌ Operación cancelada\n");
+      await prompt("Presione Enter para continuar...");
+      return;
+    }
+
+    // Realizar cambio
+    console.log("\n⏳ Actualizando estado...\n");
+
+    const response = await fetch(
+      `${WORKER_URL}/api/advisor/client/${currentClient.id}/account/${cuentaSeleccionada.cuentaId}/status`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${advisorToken}`,
+        },
+        body: JSON.stringify({ estado: nuevoEstado }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Error al cambiar estado");
+    }
+
+    console.log("✅ Estado actualizado exitosamente\n");
+    console.log(
+      `   Cuenta: ${cuentaSeleccionada.numeroCuenta} → ${nuevoEstado}\n`
+    );
+  } catch (error: any) {
+    showError(error.message);
+  }
+
+  await prompt("⏎ Presione Enter para volver al menú...");
+}
+
+async function changeCardStatus() {
+  clearScreen();
+  showHeader();
+  console.log("━━━━━━━━━━━━ ⚙️  CAMBIAR ESTADO DE TARJETA ━━━━━━━━━━━━━━\n");
+
+  try {
+    // Obtener tarjetas
+    const tarjetas = await getClientCards(currentClient.id);
+
+    if (tarjetas.length === 0) {
+      showError("El cliente no tiene tarjetas registradas");
+      await prompt("Presione Enter para continuar...");
+      return;
+    }
+
+    // Mostrar tarjetas disponibles
+    console.log("💳 Tarjetas disponibles:\n");
+    tarjetas.forEach((tarjeta: any, index: number) => {
+      console.log(
+        `  ${index + 1}. ${tarjeta.numeroTarjeta} - ${tarjeta.tipoTarjeta} (${
+          tarjeta.estado
+        })`
+      );
+    });
+
+    console.log("\n");
+    const seleccion = await prompt(
+      `👉 Seleccione una tarjeta (1-${tarjetas.length}): `
+    );
+    const index = parseInt(seleccion) - 1;
+
+    if (isNaN(index) || index < 0 || index >= tarjetas.length) {
+      showError("Selección inválida");
+      await prompt("Presione Enter para continuar...");
+      return;
+    }
+
+    const tarjetaSeleccionada = tarjetas[index];
+
+    // Mostrar estados disponibles
+    console.log("\n📊 Estados disponibles:\n");
+    console.log("  1. ACTIVA");
+    console.log("  2. BLOQUEADA");
+    console.log("  3. CANCELADA\n");
+
+    const estadoOpt = await prompt("👉 Seleccione nuevo estado (1-3): ");
+    const estados = ["ACTIVA", "BLOQUEADA", "CANCELADA"];
+    const nuevoEstado = estados[parseInt(estadoOpt) - 1];
+
+    if (!nuevoEstado) {
+      showError("Estado inválido");
+      await prompt("Presione Enter para continuar...");
+      return;
+    }
+
+    // Confirmar
+    const confirmar = await prompt(
+      `\n⚠️  ¿Confirma cambiar el estado de la tarjeta ${tarjetaSeleccionada.numeroTarjeta} a ${nuevoEstado}? (s/n): `
+    );
+
+    if (confirmar.toLowerCase() !== "s") {
+      console.log("\n❌ Operación cancelada\n");
+      await prompt("Presione Enter para continuar...");
+      return;
+    }
+
+    // Realizar cambio
+    console.log("\n⏳ Actualizando estado...\n");
+
+    const response = await fetch(
+      `${WORKER_URL}/api/advisor/client/${currentClient.id}/card/${tarjetaSeleccionada.id}/status`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${advisorToken}`,
+        },
+        body: JSON.stringify({ estado: nuevoEstado }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Error al cambiar estado");
+    }
+
+    console.log("✅ Estado actualizado exitosamente\n");
+    console.log(
+      `   Tarjeta: ${tarjetaSeleccionada.numeroTarjeta} → ${nuevoEstado}\n`
+    );
+  } catch (error: any) {
+    showError(error.message);
+  }
+
+  await prompt("⏎ Presione Enter para volver al menú...");
 }
 
 // ========================================
