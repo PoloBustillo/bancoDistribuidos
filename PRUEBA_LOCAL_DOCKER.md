@@ -1,4 +1,4 @@
-# 🧪 Prueba Local con Docker - Guía Completa
+# 🧪 Prueba Local con Docker - Modo Producción
 
 ## 📋 Requisitos Previos
 
@@ -8,16 +8,16 @@
 
 ---
 
-## 🚀 Opción 1: Usando docker-compose.dev.yml (Recomendado para desarrollo)
+## 🚀 Configuración Inicial
 
 ### Paso 1: Preparar el entorno
 
-```bash
-# Abrir terminal en la raíz del proyecto
+```powershell
+# Abrir PowerShell en la raíz del proyecto
 cd c:\Users\leopo\OneDrive\Escritorio\BUAP\DISTRIBUIDOS\bancoDistribuidos
 
 # Crear archivo .env local (si no existe)
-cp .env.example .env
+copy .env.example .env
 
 # Editar .env con tu configuración
 notepad .env
@@ -49,41 +49,24 @@ RESEND_FROM="Banco <no-reply@psicologopuebla.com>"
 NODE_ENV=development
 ```
 
-### Paso 3: Levantar servicios
+### Paso 3: Levantar servicios (Modo Producción Local)
 
-```bash
-# Levantar todo el stack
-docker-compose -f docker-compose.dev.yml up --build
+```powershell
+# Levantar todo el stack con build local
+docker-compose -f docker-compose.local.yml up --build
 
-# O en modo background (detached)
-docker-compose -f docker-compose.dev.yml up -d --build
+# O en modo background (detached) - RECOMENDADO
+docker-compose -f docker-compose.local.yml up -d --build
 
-# Ver logs en tiempo real
-docker-compose -f docker-compose.dev.yml logs -f
+# Ver logs en tiempo real después
+docker-compose -f docker-compose.local.yml logs -f
 ```
 
----
-
-## 🚀 Opción 2: Usando docker-compose.yml (Producción local)
-
-### Paso 1: Cambiar a modo build local
-
-Edita `docker-compose.yml` y descomenta las secciones de build:
-
-```yaml
-# Para cada servicio, comenta "image:" y descomenta "build:"
-coordinador:
-  # image: ghcr.io/polobustillo/bancodistribuidos-coordinador:latest
-  build:
-    context: .
-    dockerfile: coordinador/Dockerfile
-```
-
-### Paso 2: Levantar servicios
-
-```bash
-docker-compose up --build
-```
+Este comando:
+- ✅ Construye todas las imágenes localmente (como producción)
+- ✅ Incluye RabbitMQ + Microservicio de Notificaciones
+- ✅ Configura health checks y dependencies
+- ✅ Usa configuración de producción pero en local
 
 ---
 
@@ -92,7 +75,7 @@ docker-compose up --build
 ### 1. Ver estado de contenedores
 
 ```powershell
-docker-compose ps
+docker-compose -f docker-compose.local.yml ps
 ```
 
 Deberías ver:
@@ -110,15 +93,15 @@ banco-notificaciones   Up (healthy)
 
 ```powershell
 # Todos los servicios
-docker-compose logs
+docker-compose -f docker-compose.local.yml logs
 
 # Solo un servicio específico
-docker-compose logs notificaciones
-docker-compose logs rabbitmq
-docker-compose logs worker-1
+docker-compose -f docker-compose.local.yml logs notificaciones
+docker-compose -f docker-compose.local.yml logs rabbitmq
+docker-compose -f docker-compose.local.yml logs worker-1
 
 # Seguir logs en tiempo real
-docker-compose logs -f notificaciones
+docker-compose -f docker-compose.local.yml logs -f notificaciones
 ```
 
 ### 3. Health Checks
@@ -195,7 +178,7 @@ curl -X POST http://localhost:3001/api/banco/retirar `
 ### 5. Verificar logs de notificaciones
 
 ```powershell
-docker-compose logs notificaciones
+docker-compose -f docker-compose.local.yml logs notificaciones
 ```
 
 Deberías ver:
@@ -210,39 +193,39 @@ notificaciones | Notificación enviada a test@ejemplo.com (RabbitMQ)
 
 ### Ver estado de contenedores
 ```powershell
-docker-compose ps
+docker-compose -f docker-compose.local.yml ps
 ```
 
 ### Reiniciar un servicio específico
 ```powershell
-docker-compose restart notificaciones
-docker-compose restart rabbitmq
+docker-compose -f docker-compose.local.yml restart notificaciones
+docker-compose -f docker-compose.local.yml restart rabbitmq
 ```
 
 ### Ver logs de un servicio
 ```powershell
-docker-compose logs -f notificaciones
+docker-compose -f docker-compose.local.yml logs -f notificaciones
 ```
 
 ### Ejecutar comando dentro de un contenedor
 ```powershell
 # Ver variables de entorno
-docker-compose exec worker-1 env
+docker-compose -f docker-compose.local.yml exec worker-1 env
 
 # Acceder a shell
-docker-compose exec worker-1 sh
+docker-compose -f docker-compose.local.yml exec worker-1 sh
 ```
 
 ### Limpiar todo y empezar de nuevo
 ```powershell
 # Detener y eliminar contenedores
-docker-compose down
+docker-compose -f docker-compose.local.yml down
 
 # Eliminar también volúmenes
-docker-compose down -v
+docker-compose -f docker-compose.local.yml down -v
 
 # Reconstruir desde cero
-docker-compose up --build --force-recreate
+docker-compose -f docker-compose.local.yml up --build --force-recreate
 ```
 
 ### Ver consumo de recursos
@@ -254,50 +237,62 @@ docker stats
 
 ## 🐛 Troubleshooting
 
-### Error: "Port already in use"
+### Error: "Port already in use" (5672, 15672, 4001, etc.)
+
+Si ves un error como `Bind for 0.0.0.0:5672 failed: port is already allocated`:
 
 ```powershell
 # Ver qué está usando el puerto
-netstat -ano | findstr :4001
+netstat -ano | findstr :5672
 
-# Matar el proceso (reemplaza PID)
-taskkill /PID <PID> /F
+# Verificar contenedores Docker corriendo
+docker ps -a | findstr rabbitmq
+
+# Si hay un RabbitMQ del microservicio de notificaciones:
+cd microservicios/notificaciones
+docker-compose down
+cd ..\..
+
+# Luego intenta de nuevo
+docker-compose -f docker-compose.local.yml up -d --build
 ```
+
+**Nota:** El `docker-compose.local.yml` incluye RabbitMQ, así que no necesitas correr el docker-compose del microservicio de notificaciones por separado.
 
 ### Error: "Cannot connect to RabbitMQ"
 
 ```powershell
 # Ver logs de RabbitMQ
-docker-compose logs rabbitmq
+docker-compose -f docker-compose.local.yml logs rabbitmq
 
 # Reiniciar RabbitMQ
-docker-compose restart rabbitmq
+docker-compose -f docker-compose.local.yml restart rabbitmq
 
 # Verificar que esté healthy
-docker-compose ps rabbitmq
+docker-compose -f docker-compose.local.yml ps rabbitmq
 ```
 
 ### Workers no se conectan a la base de datos
 
 ```powershell
 # Verificar que DATABASE_URL sea correcta
-docker-compose exec worker-1 env | findstr DATABASE
+docker-compose -f docker-compose.local.yml exec worker-1 env | findstr DATABASE
 
 # Ver logs del worker
-docker-compose logs worker-1
+docker-compose -f docker-compose.local.yml logs worker-1
 ```
 
 ### Notificaciones no se envían
 
 ```powershell
 # Ver logs
-docker-compose logs notificaciones
+docker-compose -f docker-compose.local.yml logs notificaciones
 
 # Verificar que RabbitMQ esté corriendo
-docker-compose ps rabbitmq
+docker-compose -f docker-compose.local.yml ps rabbitmq
 
 # Verificar API key de Resend
-docker-compose exec notificaciones env | findstr RESEND
+docker-compose -f docker-compose.local.yml exec notificaciones env | findstr RESEND
 
 # Probar endpoint directamente
 curl -X POST http://localhost:4001/api/notificaciones/send `
@@ -345,17 +340,17 @@ worker-1:
 
 ### Ver todos los logs juntos
 ```powershell
-docker-compose logs -f
+docker-compose -f docker-compose.local.yml logs -f
 ```
 
 ### Ver logs de servicios específicos
 ```powershell
-docker-compose logs -f coordinador worker-1 notificaciones
+docker-compose -f docker-compose.local.yml logs -f coordinador worker-1 notificaciones
 ```
 
 ### Ver cola de RabbitMQ
 ```powershell
-docker-compose exec rabbitmq rabbitmqctl list_queues
+docker-compose -f docker-compose.local.yml exec rabbitmq rabbitmqctl list_queues
 ```
 
 ---
