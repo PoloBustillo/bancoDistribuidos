@@ -204,7 +204,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          command_timeout: 1m
+          command_timeout: 30s
           script: |
             cd ${{ env.DEPLOY_PATH }}
 
@@ -215,7 +215,7 @@ jobs:
             echo ""
 
             # Dar tiempo para health checks
-            sleep 5
+            sleep 10
 
             # Verificar servicios HTTP con timeout corto
             echo "Verificando endpoints HTTP..."
@@ -225,8 +225,7 @@ jobs:
             timeout 3 curl -sf http://localhost:3003/api/health > /dev/null 2>&1 && echo "✅ Worker 3 (3003)" || echo "⚠️  Worker 3 iniciando"
 
             echo ""
-            echo "📋 Logs recientes:"
-            timeout 10 docker compose logs --tail=15 --no-color 2>&1 || echo "Logs no disponibles"
+            echo "✅ Health check completado"
 
       - name: Rollback en caso de fallo
         if: failure()
