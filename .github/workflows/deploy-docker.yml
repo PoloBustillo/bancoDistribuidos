@@ -138,6 +138,20 @@ jobs:
               echo "Por favor configura DATABASE_URL con la conexión a tu base de datos PostgreSQL"
               exit 1
             fi
+            
+            # Verificar y actualizar CORS_ORIGIN si es necesario
+            echo "🌐 Verificando configuración de CORS..."
+            if ! grep -q "^CORS_ORIGIN=.*banco-distribuidos\.vercel\.app" .env; then
+              echo "⚠️  Actualizando CORS_ORIGIN en .env..."
+              if grep -q "^CORS_ORIGIN=" .env; then
+                sed -i 's|^CORS_ORIGIN=.*|CORS_ORIGIN=https://banco-distribuidos.vercel.app,https://banco.psic-danieladiaz.com|' .env
+              else
+                echo "CORS_ORIGIN=https://banco-distribuidos.vercel.app,https://banco.psic-danieladiaz.com" >> .env
+              fi
+              echo "✅ CORS_ORIGIN actualizado"
+            else
+              echo "✅ CORS_ORIGIN ya está configurado correctamente"
+            fi
 
             # Crear carpeta de backups
             mkdir -p backups
